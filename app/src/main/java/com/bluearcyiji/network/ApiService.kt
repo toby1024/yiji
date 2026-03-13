@@ -12,8 +12,17 @@ data class UserLoginRequest(
     val email: String,
 )
 
-data class UserLoginResponse(
+data class BaseResponse<T>(
+    val code: Int,
+    val message: String,
+    val data: T?,
+)
+
+data class UserLoginData(
+    val userId: String,
     val token: String,
+    val refreshToken: String,
+    val expiresIn: Long,
 )
 
 data class SkuItem(
@@ -33,15 +42,23 @@ data class SkuListResponse(
     val skuList: SkuListPayload,
 )
 
+data class RecordRequest(
+    val sequence: Int,
+    val clickTime: String,
+)
+
 interface ApiService {
 
     @GET("health")
     suspend fun healthCheck(): Response<ResponseBody>
 
     @GET("resources/sku/list")
-    suspend fun getSkuList(): Response<SkuListResponse>
+    suspend fun getSkuList(): Response<BaseResponse<SkuListResponse>>
 
     @POST("auth/google_login")
-    suspend fun login(@Body request: UserLoginRequest): Response<UserLoginResponse>
+    suspend fun login(@Body request: UserLoginRequest): Response<BaseResponse<UserLoginData>>
+
+    @POST("record/save")
+    suspend fun saveRecords(@Body request: List<RecordRequest>): Response<BaseResponse<Any>>
 }
 

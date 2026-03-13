@@ -26,12 +26,16 @@ import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
 import com.bluearcyiji.auth.AuthManager
+import com.bluearcyiji.network.ApiHttpException
+import com.bluearcyiji.network.RecordRequest
 import com.bluearcyiji.network.ServerApiRepository
 import com.bluearcyiji.ui.theme.YIJITheme
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 import kotlin.math.max
 import kotlin.math.min
@@ -64,6 +68,8 @@ fun MainScreen() {
     var loggedInUserName by remember { mutableStateOf<String?>(null) }
     var serverToken by remember { mutableStateOf(AuthManager.getToken()) }
     var showProfileMenu by remember { mutableStateOf(false) }
+    var loginInProgress by remember { mutableStateOf(false) }
+    val tapRecords = remember { mutableStateListOf<RecordRequest>() }
 
     LaunchedEffect(serverToken) {
         if (serverToken.isNullOrBlank()) {
@@ -112,6 +118,95 @@ fun MainScreen() {
     )
     val tapCardColor = tapCardColors[(clickCount / 10) % tapCardColors.size]
     val isLoggedIn = loggedInUserName != null || !serverToken.isNullOrBlank()
+    val timeFormatter = remember { SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US) }
+
+    fun Throwable.isForbidden(): Boolean {
+        return this is ApiHttpException && this.statusCode == 403
+    }
+
+    suspend fun startLoginFlow() {
+        if (loginInProgress) return
+        loginInProgress = true
+
+        val webClientId: String = runCatching {
+            Class.forName("com.bluearcyiji.BuildConfig")
+                .getField("GOOGLE_WEB_CLIENT_ID")
+                .get(null) as? String
+        }.getOrNull() ?: ""
+        if (webClientId.isBlank()) {
+            snackbarHostState.showSnackbar("Missing GOOGLE_WEB_CLIENT_ID")
+            loginInProgress = false
+            return
+        }
+
+        val credentialManager = CredentialManager.create(context)
+        val googleIdOption =
+            GetGoogleIdOption.Builder()
+                .setFilterByAuthorizedAccounts(false)
+                .setAutoSelectEnabled(false)
+                .setServerClientId(webClientId)
+                .build()
+        val request =
+            GetCredentialRequest.Builder()
+                .addCredentialOption(googleIdOption)
+                .build()
+
+        try {
+            val result = credentialManager.getCredential(
+                context = context,
+                request = request
+            )
+            val credential = result.credential
+            if (
+                credential is CustomCredential &&
+                credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
+            ) {
+                val googleCredential =
+                    GoogleIdTokenCredential.createFrom(credential.data)
+                val loginResult = serverApiRepository
+                    .loginWithGoogleIdToken(
+                        idToken = googleCredential.idToken,
+                        email = googleCredential.id,
+                    )
+                loginResult
+                    .onSuccess { token ->
+                        AuthManager.saveToken(token)
+                        serverToken = token
+                        loggedInUserName =
+                            googleCredential.displayName ?: googleCredential.id
+                        showProfileMenu = true
+                        snackbarHostState.showSnackbar("Signed in")
+                    }
+                    .onFailure { error ->
+                        snackbarHostState.showSnackbar(
+                            "Login API failed: ${error.message ?: "unknown error"}"
+                        )
+                    }
+            } else {
+                snackbarHostState.showSnackbar("Unsupported credential")
+            }
+        } catch (_: GetCredentialCancellationException) {
+            // User dismissed the account chooser.
+        } catch (e: GetCredentialException) {
+            snackbarHostState.showSnackbar(
+                "Sign-in failed: ${e.localizedMessage ?: "unknown error"}"
+            )
+        } finally {
+            loginInProgress = false
+        }
+    }
+
+    suspend fun handleForbiddenAndRelogin() {
+        AuthManager.clearToken()
+        serverToken = null
+        loggedInUserName = null
+        showProfileMenu = false
+
+        if (loginInProgress) return
+
+        snackbarHostState.showSnackbar("Session expired, please sign in again")
+        startLoginFlow()
+    }
 
     LaunchedEffect(startTime) {
         while (startTime > 0) {
@@ -143,6 +238,7 @@ fun MainScreen() {
                 maxInterval = 0
                 minInterval = Long.MAX_VALUE
                 duration = 0
+                tapRecords.clear()
             }
 
             isResetting = false
@@ -175,70 +271,7 @@ fun MainScreen() {
                                     showProfileMenu = true
                                 } else {
                                     scope.launch {
-                                        val webClientId: String = runCatching {
-                                            Class.forName("com.bluearcyiji.BuildConfig")
-                                                .getField("GOOGLE_WEB_CLIENT_ID")
-                                                .get(null) as? String
-                                        }.getOrNull() ?: ""
-                                        if (webClientId.isBlank()) {
-                                            snackbarHostState.showSnackbar("Missing GOOGLE_WEB_CLIENT_ID")
-                                            return@launch
-                                        }
-
-                                        val credentialManager = CredentialManager.create(context)
-                                        val googleIdOption =
-                                            GetGoogleIdOption.Builder()
-                                                .setFilterByAuthorizedAccounts(false)
-                                                .setAutoSelectEnabled(false)
-                                                .setServerClientId(webClientId)
-                                                .build()
-                                        val request =
-                                            GetCredentialRequest.Builder()
-                                                .addCredentialOption(googleIdOption)
-                                                .build()
-
-                                        try {
-                                            val result = credentialManager.getCredential(
-                                                context = context,
-                                                request = request
-                                            )
-                                            val credential = result.credential
-                                            if (
-                                                credential is CustomCredential &&
-                                                credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
-                                            ) {
-                                                val googleCredential =
-                                                    GoogleIdTokenCredential.createFrom(credential.data)
-                                                val loginResult = serverApiRepository
-                                                    .loginWithGoogleIdToken(
-                                                        idToken = googleCredential.idToken,
-                                                        email = googleCredential.id,
-                                                    )
-                                                loginResult
-                                                    .onSuccess { token ->
-                                                        AuthManager.saveToken(token)
-                                                        serverToken = token
-                                                        loggedInUserName =
-                                                            googleCredential.displayName
-                                                                ?: googleCredential.id
-                                                        showProfileMenu = true
-                                                        snackbarHostState.showSnackbar("Signed in")
-                                                    }
-                                                    .onFailure { error ->
-                                                        snackbarHostState.showSnackbar(
-                                                            "Login API failed: ${error.message ?: "unknown error"}"
-                                                        )
-                                                    }
-                                            } else {
-                                                snackbarHostState.showSnackbar("Unsupported credential")
-                                            }
-                                        } catch (_: GetCredentialCancellationException) {
-                                            // User dismissed the account chooser.
-                                        } catch (e: GetCredentialException) {
-                                            snackbarHostState.showSnackbar(
-                                                "Sign-in failed: ${e.localizedMessage ?: "unknown error"}"
-                                            )
-                                        }
+                                        startLoginFlow()
                                     }
                                 }
                             }
@@ -339,7 +372,14 @@ fun MainScreen() {
                         }
 
                         lastClickTime = now
-                        clickCount++
+                        val sequence = clickCount + 1
+                        clickCount = sequence
+                        tapRecords.add(
+                            RecordRequest(
+                                sequence = sequence,
+                                clickTime = timeFormatter.format(Date()),
+                            )
+                        )
                     },
 
                 colors = CardDefaults.cardColors(
@@ -368,10 +408,38 @@ fun MainScreen() {
             ) {
 
                 Button(
-                    onClick = {},
+                    onClick = {
+                        scope.launch {
+                            if (tapRecords.isEmpty()) {
+                                snackbarHostState.showSnackbar("No tap records to save")
+                                return@launch
+                            }
+                            serverApiRepository.saveRecords(tapRecords.toList())
+                                .onSuccess {
+                                    tapRecords.clear()
+                                    clickCount = 0
+                                    startTime = 0
+                                    lastClickTime = 0
+                                    totalInterval = 0
+                                    maxInterval = 0
+                                    minInterval = Long.MAX_VALUE
+                                    duration = 0
+                                    snackbarHostState.showSnackbar("Records saved")
+                                }
+                                .onFailure { error ->
+                                    if (error.isForbidden()) {
+                                        handleForbiddenAndRelogin()
+                                    } else {
+                                        snackbarHostState.showSnackbar(
+                                            "Save failed: ${error.message ?: "unknown error"}"
+                                        )
+                                    }
+                                }
+                        }
+                    },
                     interactionSource = resetInteraction
                 ) {
-                    Text("Hold 2s to Reset")
+                    Text("Reset And Save")
                 }
 
                 if (resetProgress > 0f) {
