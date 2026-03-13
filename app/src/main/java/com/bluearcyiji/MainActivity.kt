@@ -88,6 +88,7 @@ fun MainScreen() {
     var minInterval by remember { mutableStateOf(Long.MAX_VALUE) }
 
     var duration by remember { mutableStateOf(0L) }
+    var isPaused by remember { mutableStateOf(false) }
 
     var resetProgress by remember { mutableStateOf(0f) }
     var isResetting by remember { mutableStateOf(false) }
@@ -208,8 +209,8 @@ fun MainScreen() {
         startLoginFlow()
     }
 
-    LaunchedEffect(startTime) {
-        while (startTime > 0) {
+    LaunchedEffect(startTime, isPaused) {
+        while (startTime > 0 && !isPaused) {
             duration = System.currentTimeMillis() - startTime
             delay(100)
         }
@@ -238,6 +239,7 @@ fun MainScreen() {
                 maxInterval = 0
                 minInterval = Long.MAX_VALUE
                 duration = 0
+                isPaused = false
                 tapRecords.clear()
             }
 
@@ -249,6 +251,21 @@ fun MainScreen() {
 
     Scaffold(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+        topBar = {
+            if (resetProgress > 0f) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .padding(top = 8.dp)
+                ) {
+                    LinearProgressIndicator(
+                        progress = { resetProgress },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        },
 
         bottomBar = {
             BottomAppBar {
@@ -326,15 +343,6 @@ fun MainScreen() {
 
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-
-            Text(
-                "Training Tempo Counter",
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
             Text(
                 text = "$clickCount",
                 fontSize = 70.sp,
@@ -355,6 +363,9 @@ fun MainScreen() {
                     .fillMaxWidth()
                     .weight(1f)
                     .clickable {
+                        if (isPaused) {
+                            return@clickable
+                        }
 
                         val now = System.currentTimeMillis()
 
@@ -406,51 +417,70 @@ fun MainScreen() {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-
-                Button(
-                    onClick = {
-                        scope.launch {
-                            if (tapRecords.isEmpty()) {
-                                snackbarHostState.showSnackbar("No tap records to save")
-                                return@launch
-                            }
-                            serverApiRepository.saveRecords(tapRecords.toList())
-                                .onSuccess {
-                                    tapRecords.clear()
-                                    clickCount = 0
-                                    startTime = 0
-                                    lastClickTime = 0
-                                    totalInterval = 0
-                                    maxInterval = 0
-                                    minInterval = Long.MAX_VALUE
-                                    duration = 0
-                                    snackbarHostState.showSnackbar("Records saved")
-                                }
-                                .onFailure { error ->
-                                    if (error.isForbidden()) {
-                                        handleForbiddenAndRelogin()
-                                    } else {
-                                        snackbarHostState.showSnackbar(
-                                            "Save failed: ${error.message ?: "unknown error"}"
-                                        )
-                                    }
-                                }
-                        }
-                    },
-                    interactionSource = resetInteraction
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Text("Reset And Save")
+                    OutlinedButton(
+                        onClick = {
+                            scope.launch {
+                                if (tapRecords.isEmpty()) {
+                                    snackbarHostState.showSnackbar("No tap records to save")
+                                    return@launch
+                                }
+                                serverApiRepository.saveRecords(tapRecords.toList())
+                                    .onSuccess {
+                                        tapRecords.clear()
+                                        clickCount = 0
+                                        startTime = 0
+                                        lastClickTime = 0
+                                        totalInterval = 0
+                                        maxInterval = 0
+                                        minInterval = Long.MAX_VALUE
+                                        duration = 0
+                                        isPaused = false
+                                        snackbarHostState.showSnackbar("Records saved")
+                                    }
+                                    .onFailure { error ->
+                                        if (error.isForbidden()) {
+                                            handleForbiddenAndRelogin()
+                                        } else {
+                                            snackbarHostState.showSnackbar(
+                                                "Save failed: ${error.message ?: "unknown error"}"
+                                            )
+                                        }
+                                    }
+                            }
+                        },
+                        interactionSource = resetInteraction,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Reset And Save")
+                    }
+
+                    Button(
+                        onClick = {
+                            if (startTime == 0L) {
+                                return@Button
+                            }
+
+                            if (isPaused) {
+                                startTime = System.currentTimeMillis() - duration
+                                isPaused = false
+                            } else {
+                                isPaused = true
+                            }
+                        },
+                        modifier = Modifier.weight(1.2f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        )
+                    ) {
+                        Text(if (isPaused) "Resume" else "Pause")
+                    }
                 }
 
-                if (resetProgress > 0f) {
-
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    LinearProgressIndicator(
-                        progress = { resetProgress },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
             }
         }
     }
