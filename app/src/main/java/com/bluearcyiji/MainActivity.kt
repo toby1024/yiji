@@ -16,11 +16,22 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
+import androidx.credentials.CredentialManager
+import androidx.credentials.CustomCredential
+import androidx.credentials.GetCredentialRequest
+import androidx.credentials.exceptions.GetCredentialCancellationException
+import androidx.credentials.exceptions.GetCredentialException
+import com.bluearcyiji.auth.AuthManager
+import com.bluearcyiji.network.ServerApiRepository
 import com.bluearcyiji.ui.theme.YIJITheme
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.util.Locale
 import kotlin.math.max
 import kotlin.math.min
@@ -41,6 +52,26 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun MainScreen() {
+
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val serverApiRepository = remember { ServerApiRepository() }
+    val appContext = context.applicationContext
+    LaunchedEffect(appContext) {
+        AuthManager.init(appContext)
+    }
+    var loggedInUserName by remember { mutableStateOf<String?>(null) }
+    var serverToken by remember { mutableStateOf(AuthManager.getToken()) }
+    var showProfileMenu by remember { mutableStateOf(false) }
+
+    LaunchedEffect(serverToken) {
+        if (serverToken.isNullOrBlank()) {
+            AuthManager.clearToken()
+        } else {
+            AuthManager.saveToken(serverToken.orEmpty())
+        }
+    }
 
     var clickCount by remember { mutableStateOf(0) }
     var startTime by remember { mutableStateOf(0L) }
@@ -80,6 +111,7 @@ fun MainScreen() {
         Color(0xFFCFD8DC)
     )
     val tapCardColor = tapCardColors[(clickCount / 10) % tapCardColors.size]
+    val isLoggedIn = loggedInUserName != null || !serverToken.isNullOrBlank()
 
     LaunchedEffect(startTime) {
         while (startTime > 0) {
@@ -120,6 +152,7 @@ fun MainScreen() {
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
 
         bottomBar = {
             BottomAppBar {
@@ -135,8 +168,116 @@ fun MainScreen() {
 
                     Spacer(modifier = Modifier.width(48.dp))
 
-                    IconButton(onClick = { }) {
-                        Icon(Icons.Default.Person, contentDescription = "Profile")
+                    Box {
+                        IconButton(
+                            onClick = {
+                                if (isLoggedIn) {
+                                    showProfileMenu = true
+                                } else {
+                                    scope.launch {
+                                        val webClientId: String = runCatching {
+                                            Class.forName("com.bluearcyiji.BuildConfig")
+                                                .getField("GOOGLE_WEB_CLIENT_ID")
+                                                .get(null) as? String
+                                        }.getOrNull() ?: ""
+                                        if (webClientId.isBlank()) {
+                                            snackbarHostState.showSnackbar("Missing GOOGLE_WEB_CLIENT_ID")
+                                            return@launch
+                                        }
+
+                                        val credentialManager = CredentialManager.create(context)
+                                        val googleIdOption =
+                                            GetGoogleIdOption.Builder()
+                                                .setFilterByAuthorizedAccounts(false)
+                                                .setAutoSelectEnabled(false)
+                                                .setServerClientId(webClientId)
+                                                .build()
+                                        val request =
+                                            GetCredentialRequest.Builder()
+                                                .addCredentialOption(googleIdOption)
+                                                .build()
+
+                                        try {
+                                            val result = credentialManager.getCredential(
+                                                context = context,
+                                                request = request
+                                            )
+                                            val credential = result.credential
+                                            if (
+                                                credential is CustomCredential &&
+                                                credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
+                                            ) {
+                                                val googleCredential =
+                                                    GoogleIdTokenCredential.createFrom(credential.data)
+                                                val loginResult = serverApiRepository
+                                                    .loginWithGoogleIdToken(
+                                                        idToken = googleCredential.idToken,
+                                                        email = googleCredential.id,
+                                                    )
+                                                loginResult
+                                                    .onSuccess { token ->
+                                                        AuthManager.saveToken(token)
+                                                        serverToken = token
+                                                        loggedInUserName =
+                                                            googleCredential.displayName
+                                                                ?: googleCredential.id
+                                                        showProfileMenu = true
+                                                        snackbarHostState.showSnackbar("Signed in")
+                                                    }
+                                                    .onFailure { error ->
+                                                        snackbarHostState.showSnackbar(
+                                                            "Login API failed: ${error.message ?: "unknown error"}"
+                                                        )
+                                                    }
+                                            } else {
+                                                snackbarHostState.showSnackbar("Unsupported credential")
+                                            }
+                                        } catch (_: GetCredentialCancellationException) {
+                                            // User dismissed the account chooser.
+                                        } catch (e: GetCredentialException) {
+                                            snackbarHostState.showSnackbar(
+                                                "Sign-in failed: ${e.localizedMessage ?: "unknown error"}"
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        ) {
+                            Icon(Icons.Default.Person, contentDescription = "Profile")
+                        }
+
+                        DropdownMenu(
+                            expanded = showProfileMenu,
+                            onDismissRequest = { showProfileMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(loggedInUserName ?: "Profile") },
+                                onClick = { showProfileMenu = false },
+                                enabled = false
+                            )
+                            HorizontalDivider()
+                            DropdownMenuItem(
+                                text = { Text("Account") },
+                                onClick = {
+                                    showProfileMenu = false
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar("Account page is coming soon")
+                                    }
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Logout") },
+                                onClick = {
+                                    AuthManager.clearToken()
+                                    serverToken = null
+                                    loggedInUserName = null
+                                    showProfileMenu = false
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar("Signed out")
+                                    }
+                                }
+                            )
+                        }
                     }
                 }
             }

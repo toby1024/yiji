@@ -14,17 +14,34 @@ object SignatureGenerator {
         request: Request,
         timestampSeconds: Long,
         nonce: String,
-        bodyHashHex: String,
     ): String {
-        val query = request.url.encodedQuery ?: ""
+        val query = canonicalizeEncodedQuery(request.url.encodedQuery)
         return listOf(
-            request.method.uppercase(Locale.US),
-            request.url.encodedPath,
             query,
             timestampSeconds.toString(),
             nonce,
-            bodyHashHex,
-        ).joinToString("\n")
+        ).joinToString("")
+    }
+
+    private fun canonicalizeEncodedQuery(encodedQuery: String?): String {
+        if (encodedQuery.isNullOrBlank()) return ""
+
+        val normalizedPairs = encodedQuery
+            .split("&")
+            .filter { it.isNotEmpty() }
+            .map { part ->
+                val separatorIndex = part.indexOf('=')
+                if (separatorIndex >= 0) {
+                    part.substring(0, separatorIndex) to part.substring(separatorIndex + 1)
+                } else {
+                    part to ""
+                }
+            }
+            .sortedWith(compareBy<Pair<String, String>>({ it.first }, { it.second }))
+
+        return normalizedPairs.joinToString("&") { (key, value) ->
+            if (value.isEmpty()) key else "$key=$value"
+        }
     }
 
     fun bodySha256Hex(request: Request): String {

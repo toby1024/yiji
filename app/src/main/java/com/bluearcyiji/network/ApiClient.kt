@@ -1,6 +1,5 @@
 package com.bluearcyiji.network
 
-import com.bluearcyiji.BuildConfig
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -9,8 +8,29 @@ import java.util.concurrent.TimeUnit
 
 object ApiClient {
 
+    private object AppConfig {
+        private val buildConfigClass = runCatching { Class.forName("com.bluearcyiji.BuildConfig") }.getOrNull()
+
+        val debug: Boolean = getBoolean("DEBUG", false)
+        val apiBaseUrl: String = getString("API_BASE_URL", "https://example.com/")
+        val apiKey: String = getString("API_KEY", "demo-key")
+        val apiSecret: String = getString("API_SECRET", "demo-secret")
+
+        private fun getBoolean(name: String, fallback: Boolean): Boolean {
+            return runCatching {
+                buildConfigClass?.getField(name)?.get(null) as? Boolean
+            }.getOrNull() ?: fallback
+        }
+
+        private fun getString(name: String, fallback: String): String {
+            return runCatching {
+                buildConfigClass?.getField(name)?.get(null) as? String
+            }.getOrNull() ?: fallback
+        }
+    }
+
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
-        level = if (BuildConfig.DEBUG) {
+        level = if (AppConfig.debug) {
             HttpLoggingInterceptor.Level.BASIC
         } else {
             HttpLoggingInterceptor.Level.NONE
@@ -20,13 +40,18 @@ object ApiClient {
     private val okHttpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(15, TimeUnit.SECONDS)
-        .addInterceptor(SigningInterceptor(BuildConfig.API_KEY, BuildConfig.API_SECRET))
+        .addInterceptor(
+            SigningInterceptor(
+                AppConfig.apiKey,
+                AppConfig.apiSecret
+            )
+        )
         .addInterceptor(loggingInterceptor)
         .build()
 
     val service: ApiService by lazy {
         Retrofit.Builder()
-            .baseUrl(normalizeBaseUrl(BuildConfig.API_BASE_URL))
+            .baseUrl(normalizeBaseUrl(AppConfig.apiBaseUrl))
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()

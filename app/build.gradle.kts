@@ -31,6 +31,7 @@ android {
         buildConfigField("String", "API_BASE_URL", "\"${readConfig("API_BASE_URL", "https://example.com/")}\"")
         buildConfigField("String", "API_KEY", "\"${readConfig("API_KEY", "demo-key") }\"")
         buildConfigField("String", "API_SECRET", "\"${readConfig("API_SECRET", "demo-secret") }\"")
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"${readConfig("GOOGLE_WEB_CLIENT_ID", "") }\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -76,6 +77,9 @@ dependencies {
     implementation(libs.retrofit.converter.gson)
     implementation(libs.okhttp)
     implementation(libs.okhttp.logging)
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services.auth)
+    implementation(libs.googleid)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
