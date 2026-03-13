@@ -125,6 +125,16 @@ fun MainScreen() {
         return this is ApiHttpException && this.statusCode == 403
     }
 
+    fun appErrorMessage(action: String, error: Throwable? = null): String {
+        val detail = when {
+            error is ApiHttpException && error.statusCode in 500..599 -> "The server is unavailable right now."
+            error is ApiHttpException -> "The request could not be completed."
+            error != null -> "Please check your network and try again."
+            else -> "Please try again."
+        }
+        return "$action failed. $detail"
+    }
+
     suspend fun startLoginFlow() {
         if (loginInProgress) return
         loginInProgress = true
@@ -135,7 +145,7 @@ fun MainScreen() {
                 .get(null) as? String
         }.getOrNull() ?: ""
         if (webClientId.isBlank()) {
-            snackbarHostState.showSnackbar("Missing GOOGLE_WEB_CLIENT_ID")
+            snackbarHostState.showSnackbar("Sign-in is currently unavailable. Please try again later.")
             loginInProgress = false
             return
         }
@@ -176,22 +186,18 @@ fun MainScreen() {
                         loggedInUserName =
                             googleCredential.displayName ?: googleCredential.id
                         showProfileMenu = true
-                        snackbarHostState.showSnackbar("Signed in")
+                        snackbarHostState.showSnackbar("Signed in successfully.")
                     }
                     .onFailure { error ->
-                        snackbarHostState.showSnackbar(
-                            "Login API failed: ${error.message ?: "unknown error"}"
-                        )
+                        snackbarHostState.showSnackbar(appErrorMessage("Sign-in", error))
                     }
             } else {
-                snackbarHostState.showSnackbar("Unsupported credential")
+                snackbarHostState.showSnackbar("Unsupported sign-in credential. Please try again.")
             }
         } catch (_: GetCredentialCancellationException) {
             // User dismissed the account chooser.
         } catch (e: GetCredentialException) {
-            snackbarHostState.showSnackbar(
-                "Sign-in failed: ${e.localizedMessage ?: "unknown error"}"
-            )
+            snackbarHostState.showSnackbar(appErrorMessage("Sign-in", e))
         } finally {
             loginInProgress = false
         }
@@ -205,7 +211,7 @@ fun MainScreen() {
 
         if (loginInProgress) return
 
-        snackbarHostState.showSnackbar("Session expired, please sign in again")
+        snackbarHostState.showSnackbar("Your session has expired. Please sign in again.")
         startLoginFlow()
     }
 
@@ -311,7 +317,7 @@ fun MainScreen() {
                                 onClick = {
                                     showProfileMenu = false
                                     scope.launch {
-                                        snackbarHostState.showSnackbar("Account page is coming soon")
+                                        snackbarHostState.showSnackbar("Account page is coming soon.")
                                     }
                                 }
                             )
@@ -323,7 +329,7 @@ fun MainScreen() {
                                     loggedInUserName = null
                                     showProfileMenu = false
                                     scope.launch {
-                                        snackbarHostState.showSnackbar("Signed out")
+                                        snackbarHostState.showSnackbar("Signed out successfully.")
                                     }
                                 }
                             )
@@ -425,7 +431,7 @@ fun MainScreen() {
                         onClick = {
                             scope.launch {
                                 if (tapRecords.isEmpty()) {
-                                    snackbarHostState.showSnackbar("No tap records to save")
+                                    snackbarHostState.showSnackbar("No records available to save.")
                                     return@launch
                                 }
                                 serverApiRepository.saveRecords(tapRecords.toList())
@@ -439,15 +445,13 @@ fun MainScreen() {
                                         minInterval = Long.MAX_VALUE
                                         duration = 0
                                         isPaused = false
-                                        snackbarHostState.showSnackbar("Records saved")
+                                        snackbarHostState.showSnackbar("Records saved successfully.")
                                     }
                                     .onFailure { error ->
                                         if (error.isForbidden()) {
                                             handleForbiddenAndRelogin()
                                         } else {
-                                            snackbarHostState.showSnackbar(
-                                                "Save failed: ${error.message ?: "unknown error"}"
-                                            )
+                                            snackbarHostState.showSnackbar(appErrorMessage("Save", error))
                                         }
                                     }
                             }
