@@ -1,0 +1,36 @@
+<resources>
+    <string name="app_name">YIJI</string>
+    <string name="desc_home">首页</string>
+    <string name="desc_profile">个人中心</string>
+    <string name="profile">个人中心</string>
+    <string name="account">账户</string>
+    <string name="logout">退出登录</string>
+    <string name="tap">点击</string>
+    <string name="reset_and_save">重置并保存</string>
+    <string name="pause">暂停</string>
+    <string name="resume">继续</string>
+
+    <string name="stat_avg">平均</string>
+    <string name="stat_max">最大</string>
+    <string name="stat_min">最小</string>
+    <string name="stat_duration">时长</string>
+
+    <string name="action_sign_in">登录</string>
+    <string name="action_save">保存</string>
+
+    <string name="error_server_unavailable">服务器暂时不可用。</string>
+    <string name="error_request_failed">请求未能完成。</string>
+    <string name="error_network">请检查网络后重试。</string>
+    <string name="error_try_again">请稍后重试。</string>
+    <string name="error_action_failed">%1$s失败。%2$s</string>
+
+    <string name="msg_sign_in_unavailable">暂时无法登录，请稍后再试。</string>
+    <string name="msg_signed_in_success">登录成功。</string>
+    <string name="msg_unsupported_sign_in_credential">当前登录凭证不受支持，请重试。</string>
+    <string name="msg_session_expired_sign_in_again">登录状态已过期，请重新登录。</string>
+    <string name="msg_account_page_coming_soon">账户页面即将上线。</string>
+    <string name="msg_signed_out_success">已退出登录。</string>
+    <string name="msg_no_records_to_save">暂无可保存的数据。</string>
+    <string name="msg_records_saved_successfully">数据保存成功。</string>
+</resources>
+

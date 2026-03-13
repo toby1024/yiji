@@ -1,3 +1,35 @@
 <resources>
     <string name="app_name">YIJI</string>
+    <string name="desc_home">Home</string>
+    <string name="desc_profile">Profile</string>
+    <string name="profile">Profile</string>
+    <string name="account">Account</string>
+    <string name="logout">Logout</string>
+    <string name="tap">TAP</string>
+    <string name="reset_and_save">Reset And Save</string>
+    <string name="pause">Pause</string>
+    <string name="resume">Resume</string>
+
+    <string name="stat_avg">Avg</string>
+    <string name="stat_max">Max</string>
+    <string name="stat_min">Min</string>
+    <string name="stat_duration">Duration</string>
+
+    <string name="action_sign_in">Sign-in</string>
+    <string name="action_save">Save</string>
+
+    <string name="error_server_unavailable">The server is unavailable right now.</string>
+    <string name="error_request_failed">The request could not be completed.</string>
+    <string name="error_network">Please check your network and try again.</string>
+    <string name="error_try_again">Please try again.</string>
+    <string name="error_action_failed">%1$s failed. %2$s</string>
+
+    <string name="msg_sign_in_unavailable">Sign-in is currently unavailable. Please try again later.</string>
+    <string name="msg_signed_in_success">Signed in successfully.</string>
+    <string name="msg_unsupported_sign_in_credential">Unsupported sign-in credential. Please try again.</string>
+    <string name="msg_session_expired_sign_in_again">Your session has expired. Please sign in again.</string>
+    <string name="msg_account_page_coming_soon">Account page is coming soon.</string>
+    <string name="msg_signed_out_success">Signed out successfully.</string>
+    <string name="msg_no_records_to_save">No records available to save.</string>
+    <string name="msg_records_saved_successfully">Records saved successfully.</string>
 </resources>

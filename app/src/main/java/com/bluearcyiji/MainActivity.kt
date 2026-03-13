@@ -125,14 +125,20 @@ fun MainScreen() {
         return this is ApiHttpException && this.statusCode == 403
     }
 
-    fun appErrorMessage(action: String, error: Throwable? = null): String {
+    fun t(key: String, vararg args: Any): String {
+        val id = context.resources.getIdentifier(key, "string", context.packageName)
+        return if (id != 0) context.getString(id, *args) else key
+    }
+
+    fun appErrorMessage(actionKey: String, error: Throwable? = null): String {
+        val action = t(actionKey)
         val detail = when {
-            error is ApiHttpException && error.statusCode in 500..599 -> "The server is unavailable right now."
-            error is ApiHttpException -> "The request could not be completed."
-            error != null -> "Please check your network and try again."
-            else -> "Please try again."
+            error is ApiHttpException && error.statusCode in 500..599 -> t("error_server_unavailable")
+            error is ApiHttpException -> t("error_request_failed")
+            error != null -> t("error_network")
+            else -> t("error_try_again")
         }
-        return "$action failed. $detail"
+        return t("error_action_failed", action, detail)
     }
 
     suspend fun startLoginFlow() {
@@ -145,7 +151,7 @@ fun MainScreen() {
                 .get(null) as? String
         }.getOrNull() ?: ""
         if (webClientId.isBlank()) {
-            snackbarHostState.showSnackbar("Sign-in is currently unavailable. Please try again later.")
+            snackbarHostState.showSnackbar(t("msg_sign_in_unavailable"))
             loginInProgress = false
             return
         }
@@ -186,18 +192,18 @@ fun MainScreen() {
                         loggedInUserName =
                             googleCredential.displayName ?: googleCredential.id
                         showProfileMenu = true
-                        snackbarHostState.showSnackbar("Signed in successfully.")
+                        snackbarHostState.showSnackbar(t("msg_signed_in_success"))
                     }
                     .onFailure { error ->
-                        snackbarHostState.showSnackbar(appErrorMessage("Sign-in", error))
+                        snackbarHostState.showSnackbar(appErrorMessage("action_sign_in", error))
                     }
             } else {
-                snackbarHostState.showSnackbar("Unsupported sign-in credential. Please try again.")
+                snackbarHostState.showSnackbar(t("msg_unsupported_sign_in_credential"))
             }
         } catch (_: GetCredentialCancellationException) {
             // User dismissed the account chooser.
         } catch (e: GetCredentialException) {
-            snackbarHostState.showSnackbar(appErrorMessage("Sign-in", e))
+            snackbarHostState.showSnackbar(appErrorMessage("action_sign_in", e))
         } finally {
             loginInProgress = false
         }
@@ -211,7 +217,7 @@ fun MainScreen() {
 
         if (loginInProgress) return
 
-        snackbarHostState.showSnackbar("Your session has expired. Please sign in again.")
+        snackbarHostState.showSnackbar(t("msg_session_expired_sign_in_again"))
         startLoginFlow()
     }
 
@@ -282,7 +288,7 @@ fun MainScreen() {
                 ) {
 
                     IconButton(onClick = { }) {
-                        Icon(Icons.Default.Home, contentDescription = "Home")
+                        Icon(Icons.Default.Home, contentDescription = t("desc_home"))
                     }
 
                     Spacer(modifier = Modifier.width(48.dp))
@@ -299,7 +305,7 @@ fun MainScreen() {
                                 }
                             }
                         ) {
-                            Icon(Icons.Default.Person, contentDescription = "Profile")
+                            Icon(Icons.Default.Person, contentDescription = t("desc_profile"))
                         }
 
                         DropdownMenu(
@@ -307,29 +313,29 @@ fun MainScreen() {
                             onDismissRequest = { showProfileMenu = false }
                         ) {
                             DropdownMenuItem(
-                                text = { Text(loggedInUserName ?: "Profile") },
+                                text = { Text(loggedInUserName ?: t("profile")) },
                                 onClick = { showProfileMenu = false },
                                 enabled = false
                             )
                             HorizontalDivider()
                             DropdownMenuItem(
-                                text = { Text("Account") },
+                                text = { Text(t("account")) },
                                 onClick = {
                                     showProfileMenu = false
                                     scope.launch {
-                                        snackbarHostState.showSnackbar("Account page is coming soon.")
+                                        snackbarHostState.showSnackbar(t("msg_account_page_coming_soon"))
                                     }
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("Logout") },
+                                text = { Text(t("logout")) },
                                 onClick = {
                                     AuthManager.clearToken()
                                     serverToken = null
                                     loggedInUserName = null
                                     showProfileMenu = false
                                     scope.launch {
-                                        snackbarHostState.showSnackbar("Signed out successfully.")
+                                        snackbarHostState.showSnackbar(t("msg_signed_out_success"))
                                     }
                                 }
                             )
@@ -358,9 +364,9 @@ fun MainScreen() {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            StatRow("Avg", avgIntervalSec, "Max", maxIntervalSec)
+            StatRow(t("stat_avg"), avgIntervalSec, t("stat_max"), maxIntervalSec)
             Spacer(modifier = Modifier.height(8.dp))
-            StatRow("Min", minIntervalSec, "Duration", durationSec)
+            StatRow(t("stat_min"), minIntervalSec, t("stat_duration"), durationSec)
 
             Spacer(modifier = Modifier.height(20.dp))
 
@@ -410,7 +416,7 @@ fun MainScreen() {
                 ) {
 
                     Text(
-                        "TAP",
+                        t("tap"),
                         fontSize = 40.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -431,7 +437,7 @@ fun MainScreen() {
                         onClick = {
                             scope.launch {
                                 if (tapRecords.isEmpty()) {
-                                    snackbarHostState.showSnackbar("No records available to save.")
+                                    snackbarHostState.showSnackbar(t("msg_no_records_to_save"))
                                     return@launch
                                 }
                                 serverApiRepository.saveRecords(tapRecords.toList())
@@ -445,13 +451,13 @@ fun MainScreen() {
                                         minInterval = Long.MAX_VALUE
                                         duration = 0
                                         isPaused = false
-                                        snackbarHostState.showSnackbar("Records saved successfully.")
+                                        snackbarHostState.showSnackbar(t("msg_records_saved_successfully"))
                                     }
                                     .onFailure { error ->
                                         if (error.isForbidden()) {
                                             handleForbiddenAndRelogin()
                                         } else {
-                                            snackbarHostState.showSnackbar(appErrorMessage("Save", error))
+                                            snackbarHostState.showSnackbar(appErrorMessage("action_save", error))
                                         }
                                     }
                             }
@@ -459,7 +465,7 @@ fun MainScreen() {
                         interactionSource = resetInteraction,
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text("Reset And Save")
+                        Text(t("reset_and_save"))
                     }
 
                     Button(
@@ -481,7 +487,7 @@ fun MainScreen() {
                             contentColor = MaterialTheme.colorScheme.onPrimary
                         )
                     ) {
-                        Text(if (isPaused) "Resume" else "Pause")
+                        Text(if (isPaused) t("resume") else t("pause"))
                     }
                 }
 
