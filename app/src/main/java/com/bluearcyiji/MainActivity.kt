@@ -30,6 +30,9 @@ import com.bluearcyiji.network.ApiHttpException
 import com.bluearcyiji.network.RecordRequest
 import com.bluearcyiji.network.ServerApiRepository
 import com.bluearcyiji.ui.theme.YIJITheme
+import com.bluearcyiji.ui.AppTextKey
+import com.bluearcyiji.ui.appText
+import com.bluearcyiji.ui.formatSecondsLabel
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import kotlinx.coroutines.delay
@@ -120,14 +123,46 @@ fun MainScreen() {
     val tapCardColor = tapCardColors[(clickCount / 10) % tapCardColors.size]
     val isLoggedIn = loggedInUserName != null || !serverToken.isNullOrBlank()
     val timeFormatter = remember { SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US) }
+    val textKeys = remember {
+        mapOf(
+            "desc_home" to AppTextKey.DescHome,
+            "desc_profile" to AppTextKey.DescProfile,
+            "profile" to AppTextKey.Profile,
+            "account" to AppTextKey.Account,
+            "logout" to AppTextKey.Logout,
+            "tap" to AppTextKey.Tap,
+            "reset_and_save" to AppTextKey.ResetAndSave,
+            "pause" to AppTextKey.Pause,
+            "resume" to AppTextKey.Resume,
+            "stat_avg" to AppTextKey.StatAvg,
+            "stat_max" to AppTextKey.StatMax,
+            "stat_min" to AppTextKey.StatMin,
+            "stat_duration" to AppTextKey.StatDuration,
+            "action_sign_in" to AppTextKey.ActionSignIn,
+            "action_save" to AppTextKey.ActionSave,
+            "error_server_unavailable" to AppTextKey.ErrorServerUnavailable,
+            "error_request_failed" to AppTextKey.ErrorRequestFailed,
+            "error_network" to AppTextKey.ErrorNetwork,
+            "error_try_again" to AppTextKey.ErrorTryAgain,
+            "error_action_failed" to AppTextKey.ErrorActionFailed,
+            "msg_sign_in_unavailable" to AppTextKey.MsgSignInUnavailable,
+            "msg_signed_in_success" to AppTextKey.MsgSignedInSuccess,
+            "msg_unsupported_sign_in_credential" to AppTextKey.MsgUnsupportedSignInCredential,
+            "msg_session_expired_sign_in_again" to AppTextKey.MsgSessionExpiredSignInAgain,
+            "msg_account_page_coming_soon" to AppTextKey.MsgAccountPageComingSoon,
+            "msg_signed_out_success" to AppTextKey.MsgSignedOutSuccess,
+            "msg_no_records_to_save" to AppTextKey.MsgNoRecordsToSave,
+            "msg_records_saved_successfully" to AppTextKey.MsgRecordsSavedSuccessfully,
+        )
+    }
 
     fun Throwable.isForbidden(): Boolean {
         return this is ApiHttpException && this.statusCode == 403
     }
 
     fun t(key: String, vararg args: Any): String {
-        val id = context.resources.getIdentifier(key, "string", context.packageName)
-        return if (id != 0) context.getString(id, *args) else key
+        val textKey = textKeys[key] ?: return key
+        return context.appText(textKey, *args)
     }
 
     fun appErrorMessage(actionKey: String, error: Throwable? = null): String {
@@ -191,7 +226,7 @@ fun MainScreen() {
                         serverToken = token
                         loggedInUserName =
                             googleCredential.displayName ?: googleCredential.id
-                        showProfileMenu = true
+                        showProfileMenu = false
                         snackbarHostState.showSnackbar(t("msg_signed_in_success"))
                     }
                     .onFailure { error ->
@@ -498,14 +533,15 @@ fun MainScreen() {
 
 @Composable
 fun StatRow(t1: String, v1: Double, t2: String, v2: Double) {
+    val context = LocalContext.current
 
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceEvenly
     ) {
 
-        StatCard(t1, "${String.format(Locale.US, "%.1f", v1)} s")
-        StatCard(t2, "${String.format(Locale.US, "%.1f", v2)} s")
+        StatCard(t1, context.formatSecondsLabel(v1))
+        StatCard(t2, context.formatSecondsLabel(v2))
     }
 }
 
