@@ -4,26 +4,34 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
@@ -35,13 +43,17 @@ import com.bluearcyiji.network.RecordDetail
 import com.bluearcyiji.network.RecordRequest
 import com.bluearcyiji.network.ServerApiRepository
 import com.bluearcyiji.network.SkuItem
-import com.bluearcyiji.ui.theme.YIJITheme
 import com.bluearcyiji.ui.AppTextKey
-import com.bluearcyiji.ui.PremiumSkuList
+import com.bluearcyiji.ui.CounterSummary
+import com.bluearcyiji.ui.MainBottomBar
 import com.bluearcyiji.ui.MessageTone
+import com.bluearcyiji.ui.PremiumOverlayDialog
+import com.bluearcyiji.ui.SaveAndPauseActions
+import com.bluearcyiji.ui.TapCard
 import com.bluearcyiji.ui.TopMessageHost
 import com.bluearcyiji.ui.appText
 import com.bluearcyiji.ui.formatSecondsLabel
+import com.bluearcyiji.ui.theme.YIJITheme
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import kotlinx.coroutines.delay
@@ -53,11 +65,9 @@ import kotlin.math.max
 import kotlin.math.min
 
 class MainActivity : ComponentActivity() {
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-
         setContent {
             YIJITheme {
                 MainScreen()
@@ -66,41 +76,38 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@Preview(
-    showBackground = true,
-    showSystemUi = true
-)
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+private fun MainPreview() {
+    YIJITheme {
+        MainScreen()
+    }
+}
 
 @Composable
-@OptIn(ExperimentalMaterial3Api::class)
 fun MainScreen() {
-
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
-    var messageTone by remember { mutableStateOf(MessageTone.Info) }
     val serverApiRepository = remember { ServerApiRepository() }
+
     val appContext = context.applicationContext
     LaunchedEffect(appContext) {
         AuthManager.init(appContext)
     }
+
     var loggedInUserName by remember { mutableStateOf<String?>(null) }
     var serverToken by remember { mutableStateOf(AuthManager.getToken()) }
     var showProfileMenu by remember { mutableStateOf(false) }
     var loginInProgress by remember { mutableStateOf(false) }
     val tapDetails = remember { mutableStateListOf<RecordDetail>() }
+
     var showPremiumDialog by remember { mutableStateOf(false) }
     var premiumLoading by remember { mutableStateOf(false) }
     var premiumPlans by remember { mutableStateOf<List<SkuItem>>(emptyList()) }
     var selectedPremiumSkuId by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(serverToken) {
-        if (serverToken.isNullOrBlank()) {
-            AuthManager.clearToken()
-        } else {
-            AuthManager.saveToken(serverToken.orEmpty())
-        }
-    }
+    var messageTone by remember { mutableStateOf(MessageTone.Info) }
 
     var clickCount by remember { mutableStateOf(0) }
     var startTime by remember { mutableStateOf(0L) }
@@ -114,13 +121,19 @@ fun MainScreen() {
     var isPaused by remember { mutableStateOf(false) }
     var isSaving by remember { mutableStateOf(false) }
 
-    val avgInterval = if (clickCount > 1) totalInterval / (clickCount - 1) else 0L
+    LaunchedEffect(serverToken) {
+        if (serverToken.isNullOrBlank()) {
+            AuthManager.clearToken()
+        } else {
+            AuthManager.saveToken(serverToken.orEmpty())
+        }
+    }
 
+    val avgInterval = if (clickCount > 1) totalInterval / (clickCount - 1) else 0L
     val durationSec = duration / 1000.0
     val avgIntervalSec = avgInterval / 1000.0
     val maxIntervalSec = maxInterval / 1000.0
-    val minIntervalSec =
-        if (minInterval == Long.MAX_VALUE) 0.0 else minInterval / 1000.0
+    val minIntervalSec = if (minInterval == Long.MAX_VALUE) 0.0 else minInterval / 1000.0
 
     val tapCardColors = listOf(
         Color(0xFFE3F2FD),
@@ -132,11 +145,12 @@ fun MainScreen() {
         Color(0xFFB2DFDB),
         Color(0xFFF8BBD0),
         Color(0xFFDCEDC8),
-        Color(0xFFCFD8DC)
+        Color(0xFFCFD8DC),
     )
     val tapCardColor = tapCardColors[(clickCount / 10) % tapCardColors.size]
     val isLoggedIn = loggedInUserName != null || !serverToken.isNullOrBlank()
     val timeFormatter = remember { SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US) }
+
     val textKeys = remember {
         mapOf(
             "desc_home" to AppTextKey.DescHome,
@@ -154,6 +168,7 @@ fun MainScreen() {
             "stat_duration" to AppTextKey.StatDuration,
             "action_sign_in" to AppTextKey.ActionSignIn,
             "action_save" to AppTextKey.ActionSave,
+            "action_load_plans" to AppTextKey.ActionLoadPlans,
             "error_server_unavailable" to AppTextKey.ErrorServerUnavailable,
             "error_request_failed" to AppTextKey.ErrorRequestFailed,
             "error_network" to AppTextKey.ErrorNetwork,
@@ -172,8 +187,12 @@ fun MainScreen() {
             "premium_dialog_loading" to AppTextKey.PremiumDialogLoading,
             "premium_dialog_no_plans" to AppTextKey.PremiumDialogNoPlans,
             "premium_dialog_close" to AppTextKey.PremiumDialogClose,
-            "action_load_plans" to AppTextKey.ActionLoadPlans,
         )
+    }
+
+    fun t(key: String, vararg args: Any): String {
+        val textKey = textKeys[key] ?: return key
+        return context.appText(textKey, *args)
     }
 
     fun shouldRelogin(error: Throwable): Boolean {
@@ -182,11 +201,6 @@ fun MainScreen() {
 
     fun shouldShowPremium(error: Throwable): Boolean {
         return (error as? ApiHttpException)?.statusCode == 402
-    }
-
-    fun t(key: String, vararg args: Any): String {
-        val textKey = textKeys[key] ?: return key
-        return context.appText(textKey, *args)
     }
 
     fun appErrorMessage(actionKey: String, error: Throwable? = null): String {
@@ -220,6 +234,7 @@ fun MainScreen() {
                 .getField("GOOGLE_WEB_CLIENT_ID")
                 .get(null) as? String
         }.getOrNull() ?: ""
+
         if (webClientId.isBlank()) {
             showTopMessage(t("msg_sign_in_unavailable"), MessageTone.Error)
             loginInProgress = false
@@ -227,57 +242,54 @@ fun MainScreen() {
         }
 
         val credentialManager = CredentialManager.create(context)
-        val googleIdOption =
-            GetGoogleIdOption.Builder()
-                .setFilterByAuthorizedAccounts(false)
-                .setAutoSelectEnabled(false)
-                .setServerClientId(webClientId)
-                .build()
-        val request =
-            GetCredentialRequest.Builder()
-                .addCredentialOption(googleIdOption)
-                .build()
+        val googleIdOption = GetGoogleIdOption.Builder()
+            .setFilterByAuthorizedAccounts(false)
+            .setAutoSelectEnabled(false)
+            .setServerClientId(webClientId)
+            .build()
+        val request = GetCredentialRequest.Builder()
+            .addCredentialOption(googleIdOption)
+            .build()
 
         try {
-            val result = credentialManager.getCredential(
-                context = context,
-                request = request
-            )
+            val result = credentialManager.getCredential(context = context, request = request)
             val credential = result.credential
             if (
                 credential is CustomCredential &&
                 credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
             ) {
-                val googleCredential =
-                    GoogleIdTokenCredential.createFrom(credential.data)
-                val loginResult = serverApiRepository
+                val googleCredential = GoogleIdTokenCredential.createFrom(credential.data)
+                serverApiRepository
                     .loginWithGoogleIdToken(
                         idToken = googleCredential.idToken,
                         email = googleCredential.id,
                     )
-                loginResult
                     .onSuccess { token ->
                         AuthManager.saveToken(token)
                         serverToken = token
-                        loggedInUserName =
-                            googleCredential.displayName ?: googleCredential.id
+                        loggedInUserName = googleCredential.displayName ?: googleCredential.id
                         showProfileMenu = false
                         loginSuccess = true
-                        showTopMessage(t("msg_signed_in_success"), MessageTone.Success)
+                        scope.launch {
+                            showTopMessage(t("msg_signed_in_success"), MessageTone.Success)
+                        }
                     }
                     .onFailure { error ->
-                        showTopMessage(appErrorMessage("action_sign_in", error), MessageTone.Error)
+                        scope.launch {
+                            showTopMessage(appErrorMessage("action_sign_in", error), MessageTone.Error)
+                        }
                     }
             } else {
                 showTopMessage(t("msg_unsupported_sign_in_credential"), MessageTone.Error)
             }
         } catch (_: GetCredentialCancellationException) {
-            // User dismissed the account chooser.
+            // User cancelled chooser.
         } catch (e: GetCredentialException) {
             showTopMessage(appErrorMessage("action_sign_in", e), MessageTone.Error)
         } finally {
             loginInProgress = false
         }
+
         return loginSuccess
     }
 
@@ -325,19 +337,74 @@ fun MainScreen() {
             .onSuccess { skuResponse ->
                 val orderedPlans = skuResponse.skuList.subscription.sortedBy(::premiumRank)
                 premiumPlans = orderedPlans
-                selectedPremiumSkuId =
-                    orderedPlans.firstOrNull {
-                        val key = "${it.skuId} ${it.skuName}".lowercase(Locale.US)
-                        "monthly" in key
-                    }?.skuId ?: orderedPlans.firstOrNull()?.skuId
+                selectedPremiumSkuId = orderedPlans.firstOrNull {
+                    val key = "${it.skuId} ${it.skuName}".lowercase(Locale.US)
+                    "monthly" in key
+                }?.skuId ?: orderedPlans.firstOrNull()?.skuId
             }
             .onFailure { error ->
                 premiumPlans = emptyList()
                 selectedPremiumSkuId = null
-                snackbarHostState.showSnackbar(appErrorMessage("action_load_plans", error))
+                showTopMessage(appErrorMessage("action_load_plans", error), MessageTone.Error)
             }
 
         premiumLoading = false
+    }
+
+    suspend fun saveRecordsFlow() {
+        if (tapDetails.isEmpty()) {
+            showTopMessage(t("msg_no_records_to_save"), MessageTone.Info)
+            return
+        }
+
+        if (!isLoggedIn) {
+            val loginSuccess = startLoginFlow()
+            if (!loginSuccess) return
+        }
+
+        val request = RecordRequest(
+            avgTime = avgIntervalSec.toFloat(),
+            maxTime = maxIntervalSec.toFloat(),
+            minTime = minIntervalSec.toFloat(),
+            durationTime = durationSec.toFloat(),
+            totalClick = clickCount,
+            details = tapDetails.toList(),
+        )
+
+        isSaving = true
+        try {
+            val saveResult = serverApiRepository.saveRecords(request)
+            if (saveResult.isSuccess) {
+                clearTapData()
+                showTopMessage(t("msg_records_saved_successfully"), MessageTone.Success)
+                return
+            }
+
+            val saveError = saveResult.exceptionOrNull()
+            if (saveError != null && shouldRelogin(saveError)) {
+                val reloginSuccess = handleForbiddenAndRelogin()
+                if (reloginSuccess) {
+                    val retryResult = serverApiRepository.saveRecords(request)
+                    if (retryResult.isSuccess) {
+                        clearTapData()
+                        showTopMessage(t("msg_records_saved_successfully"), MessageTone.Success)
+                    } else {
+                        val retryError = retryResult.exceptionOrNull()
+                        if (retryError != null && shouldShowPremium(retryError)) {
+                            loadPremiumPlansAndShowDialog()
+                        } else {
+                            showTopMessage(appErrorMessage("action_save", retryError), MessageTone.Error)
+                        }
+                    }
+                }
+            } else if (saveError != null && shouldShowPremium(saveError)) {
+                loadPremiumPlansAndShowDialog()
+            } else {
+                showTopMessage(appErrorMessage("action_save", saveError), MessageTone.Error)
+            }
+        } finally {
+            isSaving = false
+        }
     }
 
     LaunchedEffect(startTime, isPaused) {
@@ -349,135 +416,92 @@ fun MainScreen() {
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
-        snackbarHost = {},
-        topBar = {
-            if (isSaving) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .statusBarsPadding()
-                        .padding(top = 8.dp)
-                ) {
-                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                }
-            }
-        },
-
-        bottomBar = {
-            BottomAppBar {
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceAround
-                ) {
-
-                    IconButton(onClick = { }) {
-                        Icon(Icons.Default.Home, contentDescription = t("desc_home"))
-                    }
-
-                    Spacer(modifier = Modifier.width(48.dp))
-
-                    Box {
-                        IconButton(
-                            onClick = {
-                                if (isLoggedIn) {
-                                    showProfileMenu = true
-                                } else {
-                                    scope.launch {
-                                        startLoginFlow()
-                                    }
-                                }
-                            }
-                        ) {
-                            Icon(Icons.Default.Person, contentDescription = t("desc_profile"))
-                        }
-
-                        DropdownMenu(
-                            expanded = showProfileMenu,
-                            onDismissRequest = { showProfileMenu = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text(loggedInUserName ?: t("profile")) },
-                                onClick = { showProfileMenu = false },
-                                enabled = false
-                            )
-                            HorizontalDivider()
-                            DropdownMenuItem(
-                                text = { Text(t("account")) },
-                                onClick = {
-                                    showProfileMenu = false
-                                    scope.launch {
-                                        showTopMessage(t("msg_account_page_coming_soon"), MessageTone.Info)
-                                    }
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(t("logout")) },
-                                onClick = {
-                                    AuthManager.clearToken()
-                                    serverToken = null
-                                    loggedInUserName = null
-                                    showProfileMenu = false
-                                    scope.launch {
-                                        showTopMessage(t("msg_signed_out_success"), MessageTone.Success)
-                                    }
-                                }
-                            )
-                        }
+            snackbarHost = {},
+            topBar = {
+                if (isSaving) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .statusBarsPadding()
+                            .padding(top = 8.dp),
+                    ) {
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                     }
                 }
-            }
-        }
-
-    ) { innerPadding ->
-
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(16.dp),
-
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = "$clickCount",
-                fontSize = 70.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.Red
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            StatRow(t("stat_avg"), avgIntervalSec, t("stat_max"), maxIntervalSec)
-            Spacer(modifier = Modifier.height(8.dp))
-            StatRow(t("stat_min"), minIntervalSec, t("stat_duration"), durationSec)
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            Card(
+            },
+            bottomBar = {
+                MainBottomBar(
+                    isLoggedIn = isLoggedIn,
+                    userName = loggedInUserName,
+                    showProfileMenu = showProfileMenu,
+                    homeDesc = t("desc_home"),
+                    profileDesc = t("desc_profile"),
+                    profileText = t("profile"),
+                    accountText = t("account"),
+                    logoutText = t("logout"),
+                    onProfileClick = {
+                        if (isLoggedIn) {
+                            showProfileMenu = true
+                        } else {
+                            scope.launch { startLoginFlow() }
+                        }
+                    },
+                    onProfileDismiss = { showProfileMenu = false },
+                    onAccountClick = {
+                        showProfileMenu = false
+                        scope.launch {
+                            showTopMessage(t("msg_account_page_coming_soon"), MessageTone.Info)
+                        }
+                    },
+                    onLogoutClick = {
+                        AuthManager.clearToken()
+                        serverToken = null
+                        loggedInUserName = null
+                        showProfileMenu = false
+                        scope.launch {
+                            showTopMessage(t("msg_signed_out_success"), MessageTone.Success)
+                        }
+                    },
+                )
+            },
+        ) { innerPadding ->
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .clickable {
-                        if (isPaused) {
-                            return@clickable
-                        }
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                CounterSummary(
+                    clickCount = clickCount,
+                    avgLabel = t("stat_avg"),
+                    maxLabel = t("stat_max"),
+                    minLabel = t("stat_min"),
+                    durationLabel = t("stat_duration"),
+                    avgValue = avgIntervalSec,
+                    maxValue = maxIntervalSec,
+                    minValue = minIntervalSec,
+                    durationValue = durationSec,
+                )
 
+                Spacer(modifier = Modifier.height(20.dp))
+
+                TapCard(
+                    tapText = t("tap"),
+                    cardColor = tapCardColor,
+                    enabled = !isPaused,
+                    modifier = Modifier.weight(1f),
+                    onTap = {
                         val now = System.currentTimeMillis()
-
                         if (clickCount == 0) {
                             startTime = now
                         }
-
                         if (lastClickTime != 0L) {
-
                             val interval = now - lastClickTime
-
                             totalInterval += interval
                             maxInterval = max(maxInterval, interval)
                             minInterval = min(minInterval, interval)
                         }
-
                         lastClickTime = now
                         val sequence = clickCount + 1
                         clickCount = sequence
@@ -488,229 +512,55 @@ fun MainScreen() {
                             )
                         )
                     },
-
-                colors = CardDefaults.cardColors(
-                    containerColor = tapCardColor
                 )
-            ) {
 
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
+                Spacer(modifier = Modifier.height(16.dp))
 
-                    Text(
-                        t("tap"),
-                        fontSize = 40.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = {
-                            if (startTime > 0L) {
-                                isPaused = true
-                            }
-                            scope.launch {
-                                if (tapDetails.isEmpty()) {
-                                    showTopMessage(t("msg_no_records_to_save"), MessageTone.Info)
-                                    return@launch
-                                }
-
-                                if (!isLoggedIn) {
-                                    val loginSuccess = startLoginFlow()
-                                    if (!loginSuccess) {
-                                        return@launch
-                                    }
-                                }
-
-                                val request = RecordRequest(
-                                    avgTime = avgIntervalSec.toFloat(),
-                                    maxTime = maxIntervalSec.toFloat(),
-                                    minTime = minIntervalSec.toFloat(),
-                                    durationTime = durationSec.toFloat(),
-                                    totalClick = clickCount,
-                                    details = tapDetails.toList(),
-                                )
-
-                                isSaving = true
-                                try {
-                                    val saveResult = serverApiRepository.saveRecords(request)
-                                    if (saveResult.isSuccess) {
-                                        clearTapData()
-                                        showTopMessage(t("msg_records_saved_successfully"), MessageTone.Success)
-                                        return@launch
-                                    }
-
-                                    val saveError = saveResult.exceptionOrNull()
-                                    if (saveError != null && shouldRelogin(saveError)) {
-                                        val reloginSuccess = handleForbiddenAndRelogin()
-                                        if (reloginSuccess) {
-                                            val retryResult = serverApiRepository.saveRecords(request)
-                                            if (retryResult.isSuccess) {
-                                                clearTapData()
-                                                showTopMessage(t("msg_records_saved_successfully"), MessageTone.Success)
-                                            } else {
-                                                val retryError = retryResult.exceptionOrNull()
-                                                if (retryError != null && shouldShowPremium(retryError)) {
-                                                    loadPremiumPlansAndShowDialog()
-                                                } else {
-                                                    showTopMessage(
-                                                        appErrorMessage("action_save", retryError),
-                                                        MessageTone.Error
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    } else if (saveError != null && shouldShowPremium(saveError)) {
-                                        loadPremiumPlansAndShowDialog()
-                                    } else {
-                                        showTopMessage(appErrorMessage("action_save", saveError), MessageTone.Error)
-                                    }
-                                } finally {
-                                    isSaving = false
-                                }
-                            }
-                        },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(t("reset_and_save"))
-                    }
-
-                    Button(
-                        onClick = {
-                            if (startTime == 0L) {
-                                return@Button
-                            }
-
+                SaveAndPauseActions(
+                    saveText = t("reset_and_save"),
+                    pauseText = if (isPaused) t("resume") else t("pause"),
+                    onSaveClick = {
+                        if (startTime > 0L) {
+                            isPaused = true
+                        }
+                        scope.launch { saveRecordsFlow() }
+                    },
+                    onPauseClick = {
+                        if (startTime != 0L) {
                             if (isPaused) {
                                 startTime = System.currentTimeMillis() - duration
                                 isPaused = false
                             } else {
                                 isPaused = true
                             }
-                        },
-                        modifier = Modifier.weight(1.2f),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary
-                        )
-                    ) {
-                        Text(if (isPaused) t("resume") else t("pause"))
-                    }
-                }
-
+                        }
+                    },
+                )
             }
         }
 
-        if (showPremiumDialog) {
-            val dialogWidth = 355.dp
-            val dialogHeight = 480.dp
-
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.5f))
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = { showPremiumDialog = false }
-                    )
-            )
-
-            Dialog(
-                onDismissRequest = { showPremiumDialog = false },
-                properties = DialogProperties(usePlatformDefaultWidth = false)
-            ) {
-                Card(
-                    shape = RoundedCornerShape(24.dp),
-                    modifier = Modifier
-                        .size(dialogWidth, dialogHeight)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-
-                        Text(
-                            text = t("premium_dialog_title"),
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold
-                        )
-
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        Text(
-                            text = t("msg_premium_required"),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.Gray
-                        )
-
-                        Spacer(modifier = Modifier.height(22.dp))
-
-                        if (premiumLoading) {
-                            CircularProgressIndicator()
-                        } else if (premiumPlans.isEmpty()) {
-                            Text(t("premium_dialog_no_plans"))
-                        } else {
-                            PremiumSkuList(
-                                skus = premiumPlans,
-                                selectedSkuId = selectedPremiumSkuId,
-                                onSkuSelected = { sku -> selectedPremiumSkuId = sku.skuId },
-                                priceFormatter = ::formatPriceInYuan,
-                            )
-
-                            Spacer(modifier = Modifier.height(22.dp))
-
-                            Button(
-                                onClick = { /* TODO purchase */ },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(50.dp),
-                                shape = RoundedCornerShape(14.dp)
-                            ) {
-                                Text("Continue")
-                            }
-
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            Text(
-                                "Cancel anytime",
-                                fontSize = 12.sp,
-                                color = Color.Gray
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        TextButton(
-                            onClick = { showPremiumDialog = false }
-                        ) {
-                            Text(t("premium_dialog_close"))
-                        }
-                    }
-                }
-            }
-        }
-        }
+        PremiumOverlayDialog(
+            visible = showPremiumDialog,
+            loading = premiumLoading,
+            plans = premiumPlans,
+            selectedSkuId = selectedPremiumSkuId,
+            title = t("premium_dialog_title"),
+            subtitle = t("msg_premium_required"),
+            loadingText = t("premium_dialog_loading"),
+            emptyText = t("premium_dialog_no_plans"),
+            closeText = t("premium_dialog_close"),
+            continueText = "Continue",
+            cancelAnytimeText = "Cancel anytime",
+            onDismiss = { showPremiumDialog = false },
+            onSkuSelected = { sku -> selectedPremiumSkuId = sku.skuId },
+            onContinue = { /* TODO purchase */ },
+            priceFormatter = ::formatPriceInYuan,
+        )
 
         TopMessageHost(
             hostState = snackbarHostState,
             tone = messageTone,
-            topSpacing = 10.dp,
+            topSpacing = 24.dp,
         )
     }
 }
@@ -718,12 +568,10 @@ fun MainScreen() {
 @Composable
 fun StatRow(t1: String, v1: Double, t2: String, v2: Double) {
     val context = LocalContext.current
-
-    Row(
+    androidx.compose.foundation.layout.Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceEvenly
+        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceEvenly,
     ) {
-
         StatCard(t1, context.formatSecondsLabel(v1))
         StatCard(t2, context.formatSecondsLabel(v2))
     }
@@ -731,27 +579,21 @@ fun StatRow(t1: String, v1: Double, t2: String, v2: Double) {
 
 @Composable
 fun StatCard(title: String, value: String) {
-
-    Card(
+    androidx.compose.material3.Card(
         modifier = Modifier
             .width(140.dp)
-            .height(70.dp)
+            .height(70.dp),
     ) {
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(6.dp),
-
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
+            verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-
-            Text(title, fontSize = 12.sp, color = Color.Gray)
-
+            androidx.compose.material3.Text(title, fontSize = 12.sp, color = Color.Gray)
             Spacer(modifier = Modifier.height(4.dp))
-
-            Text(value, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            androidx.compose.material3.Text(value, fontSize = 18.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
