@@ -32,6 +32,12 @@ enum class AppTextKey {
     MsgSignedOutSuccess,
     MsgNoRecordsToSave,
     MsgRecordsSavedSuccessfully,
+    MsgPremiumRequired,
+    PremiumDialogTitle,
+    PremiumDialogLoading,
+    PremiumDialogNoPlans,
+    PremiumDialogClose,
+    ActionLoadPlans,
 }
 
 private data class AppTextEntry(
@@ -106,6 +112,30 @@ private val appTextCatalog = mapOf(
     AppTextKey.MsgRecordsSavedSuccessfully to AppTextEntry(
         "Records saved successfully.",
         "数据保存成功。",
+    ),
+    AppTextKey.MsgPremiumRequired to AppTextEntry(
+        "Premium subscription is required for this action.",
+        "此操作需要 Premium 订阅。",
+    ),
+    AppTextKey.PremiumDialogTitle to AppTextEntry(
+        "Premium Plans",
+        "Premium 订阅方案",
+    ),
+    AppTextKey.PremiumDialogLoading to AppTextEntry(
+        "Loading plans...",
+        "正在加载订阅方案...",
+    ),
+    AppTextKey.PremiumDialogNoPlans to AppTextEntry(
+        "No subscription plans available right now.",
+        "当前暂无可用订阅方案。",
+    ),
+    AppTextKey.PremiumDialogClose to AppTextEntry(
+        "Close",
+        "关闭",
+    ),
+    AppTextKey.ActionLoadPlans to AppTextEntry(
+        "Load plans",
+        "加载方案",
     ),
 )
 

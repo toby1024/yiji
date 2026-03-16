@@ -30,6 +30,7 @@ data class SkuItem(
     val skuName: String,
     val skuPrice: Int,
     val quantity: Int,
+    val isPopular: Boolean,
 )
 
 data class SkuListPayload(

@@ -4,7 +4,9 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
@@ -15,9 +17,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
@@ -28,8 +34,10 @@ import com.bluearcyiji.network.ApiHttpException
 import com.bluearcyiji.network.RecordDetail
 import com.bluearcyiji.network.RecordRequest
 import com.bluearcyiji.network.ServerApiRepository
+import com.bluearcyiji.network.SkuItem
 import com.bluearcyiji.ui.theme.YIJITheme
 import com.bluearcyiji.ui.AppTextKey
+import com.bluearcyiji.ui.PremiumSkuList
 import com.bluearcyiji.ui.appText
 import com.bluearcyiji.ui.formatSecondsLabel
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
@@ -55,8 +63,13 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+@Preview(
+    showBackground = true,
+    showSystemUi = true
+)
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 fun MainScreen() {
 
     val context = LocalContext.current
@@ -72,6 +85,10 @@ fun MainScreen() {
     var showProfileMenu by remember { mutableStateOf(false) }
     var loginInProgress by remember { mutableStateOf(false) }
     val tapDetails = remember { mutableStateListOf<RecordDetail>() }
+    var showPremiumDialog by remember { mutableStateOf(false) }
+    var premiumLoading by remember { mutableStateOf(false) }
+    var premiumPlans by remember { mutableStateOf<List<SkuItem>>(emptyList()) }
+    var selectedPremiumSkuId by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(serverToken) {
         if (serverToken.isNullOrBlank()) {
@@ -146,11 +163,21 @@ fun MainScreen() {
             "msg_signed_out_success" to AppTextKey.MsgSignedOutSuccess,
             "msg_no_records_to_save" to AppTextKey.MsgNoRecordsToSave,
             "msg_records_saved_successfully" to AppTextKey.MsgRecordsSavedSuccessfully,
+            "msg_premium_required" to AppTextKey.MsgPremiumRequired,
+            "premium_dialog_title" to AppTextKey.PremiumDialogTitle,
+            "premium_dialog_loading" to AppTextKey.PremiumDialogLoading,
+            "premium_dialog_no_plans" to AppTextKey.PremiumDialogNoPlans,
+            "premium_dialog_close" to AppTextKey.PremiumDialogClose,
+            "action_load_plans" to AppTextKey.ActionLoadPlans,
         )
     }
 
     fun shouldRelogin(error: Throwable): Boolean {
         return (error as? ApiHttpException)?.statusCode == 403
+    }
+
+    fun shouldShowPremium(error: Throwable): Boolean {
+        return (error as? ApiHttpException)?.statusCode == 402
     }
 
     fun t(key: String, vararg args: Any): String {
@@ -167,6 +194,10 @@ fun MainScreen() {
             else -> t("error_try_again")
         }
         return t("error_action_failed", action, detail)
+    }
+
+    fun formatPriceInYuan(cents: Int): String {
+        return String.format(Locale.US, "¥%.2f", cents / 100.0)
     }
 
     suspend fun startLoginFlow(): Boolean {
@@ -262,6 +293,41 @@ fun MainScreen() {
         minInterval = Long.MAX_VALUE
         duration = 0
         isPaused = false
+    }
+
+    suspend fun loadPremiumPlansAndShowDialog() {
+        fun premiumRank(plan: SkuItem): Int {
+            val key = "${plan.skuId} ${plan.skuName}".lowercase(Locale.US)
+            return when {
+                "weekly" in key -> 0
+                "monthly" in key -> 1
+                "yearly" in key || "annual" in key -> 2
+                else -> 99
+            }
+        }
+
+        showPremiumDialog = true
+        premiumLoading = true
+        premiumPlans = emptyList()
+        selectedPremiumSkuId = null
+
+        serverApiRepository.getSkuList()
+            .onSuccess { skuResponse ->
+                val orderedPlans = skuResponse.skuList.subscription.sortedBy(::premiumRank)
+                premiumPlans = orderedPlans
+                selectedPremiumSkuId =
+                    orderedPlans.firstOrNull {
+                        val key = "${it.skuId} ${it.skuName}".lowercase(Locale.US)
+                        "monthly" in key
+                    }?.skuId ?: orderedPlans.firstOrNull()?.skuId
+            }
+            .onFailure { error ->
+                premiumPlans = emptyList()
+                selectedPremiumSkuId = null
+                snackbarHostState.showSnackbar(appErrorMessage("action_load_plans", error))
+            }
+
+        premiumLoading = false
     }
 
     LaunchedEffect(startTime, isPaused) {
@@ -486,11 +552,17 @@ fun MainScreen() {
                                                 snackbarHostState.showSnackbar(t("msg_records_saved_successfully"))
                                             } else {
                                                 val retryError = retryResult.exceptionOrNull()
-                                                snackbarHostState.showSnackbar(
-                                                    appErrorMessage("action_save", retryError)
-                                                )
+                                                if (retryError != null && shouldShowPremium(retryError)) {
+                                                    loadPremiumPlansAndShowDialog()
+                                                } else {
+                                                    snackbarHostState.showSnackbar(
+                                                        appErrorMessage("action_save", retryError)
+                                                    )
+                                                }
                                             }
                                         }
+                                    } else if (saveError != null && shouldShowPremium(saveError)) {
+                                        loadPremiumPlansAndShowDialog()
                                     } else {
                                         snackbarHostState.showSnackbar(appErrorMessage("action_save", saveError))
                                     }
@@ -527,6 +599,98 @@ fun MainScreen() {
                     }
                 }
 
+            }
+        }
+
+        if (showPremiumDialog) {
+            val dialogWidth = 355.dp
+            val dialogHeight = 480.dp
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.5f))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = { showPremiumDialog = false }
+                    )
+            )
+
+            Dialog(
+                onDismissRequest = { showPremiumDialog = false },
+                properties = DialogProperties(usePlatformDefaultWidth = false)
+            ) {
+                Card(
+                    shape = RoundedCornerShape(24.dp),
+                    modifier = Modifier
+                        .size(dialogWidth, dialogHeight)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+
+                        Text(
+                            text = t("premium_dialog_title"),
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Text(
+                            text = t("msg_premium_required"),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.Gray
+                        )
+
+                        Spacer(modifier = Modifier.height(22.dp))
+
+                        if (premiumLoading) {
+                            CircularProgressIndicator()
+                        } else if (premiumPlans.isEmpty()) {
+                            Text(t("premium_dialog_no_plans"))
+                        } else {
+                            PremiumSkuList(
+                                skus = premiumPlans,
+                                selectedSkuId = selectedPremiumSkuId,
+                                onSkuSelected = { sku -> selectedPremiumSkuId = sku.skuId },
+                                priceFormatter = ::formatPriceInYuan,
+                            )
+
+                            Spacer(modifier = Modifier.height(22.dp))
+
+                            Button(
+                                onClick = { /* TODO purchase */ },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(50.dp),
+                                shape = RoundedCornerShape(14.dp)
+                            ) {
+                                Text("Continue")
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Text(
+                                "Cancel anytime",
+                                fontSize = 12.sp,
+                                color = Color.Gray
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        TextButton(
+                            onClick = { showPremiumDialog = false }
+                        ) {
+                            Text(t("premium_dialog_close"))
+                        }
+                    }
+                }
             }
         }
     }

@@ -73,6 +73,12 @@ class ServerApiRepository(
             }
             val payload = response.body() ?: return@runCatching Unit
             if (!isBusinessSuccess(payload.code)) {
+                if (payload.code == "402") {
+                    throw ApiHttpException(
+                        statusCode = 402,
+                        message = "Business error 402: ${payload.message.orEmpty()}",
+                    )
+                }
                 if (payload.code == "403") {
                     throw ApiHttpException(
                         statusCode = 403,
