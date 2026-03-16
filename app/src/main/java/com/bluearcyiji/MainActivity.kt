@@ -5,8 +5,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
@@ -27,6 +25,7 @@ import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
 import com.bluearcyiji.auth.AuthManager
 import com.bluearcyiji.network.ApiHttpException
+import com.bluearcyiji.network.RecordDetail
 import com.bluearcyiji.network.RecordRequest
 import com.bluearcyiji.network.ServerApiRepository
 import com.bluearcyiji.ui.theme.YIJITheme
@@ -72,7 +71,7 @@ fun MainScreen() {
     var serverToken by remember { mutableStateOf(AuthManager.getToken()) }
     var showProfileMenu by remember { mutableStateOf(false) }
     var loginInProgress by remember { mutableStateOf(false) }
-    val tapRecords = remember { mutableStateListOf<RecordRequest>() }
+    val tapDetails = remember { mutableStateListOf<RecordDetail>() }
 
     LaunchedEffect(serverToken) {
         if (serverToken.isNullOrBlank()) {
@@ -92,13 +91,7 @@ fun MainScreen() {
 
     var duration by remember { mutableStateOf(0L) }
     var isPaused by remember { mutableStateOf(false) }
-
-    var resetProgress by remember { mutableStateOf(0f) }
-    var isResetting by remember { mutableStateOf(false) }
-
-    val resetInteraction = remember { MutableInteractionSource() }
-    val isResetPressed by resetInteraction.collectIsPressedAsState()
-    var holdReached by remember { mutableStateOf(false) }
+    var isSaving by remember { mutableStateOf(false) }
 
     val avgInterval = if (clickCount > 1) totalInterval / (clickCount - 1) else 0L
 
@@ -156,8 +149,8 @@ fun MainScreen() {
         )
     }
 
-    fun Throwable.isForbidden(): Boolean {
-        return this is ApiHttpException && this.statusCode == 403
+    fun shouldRelogin(error: Throwable): Boolean {
+        return (error as? ApiHttpException)?.statusCode == 403
     }
 
     fun t(key: String, vararg args: Any): String {
@@ -176,9 +169,10 @@ fun MainScreen() {
         return t("error_action_failed", action, detail)
     }
 
-    suspend fun startLoginFlow() {
-        if (loginInProgress) return
+    suspend fun startLoginFlow(): Boolean {
+        if (loginInProgress) return false
         loginInProgress = true
+        var loginSuccess = false
 
         val webClientId: String = runCatching {
             Class.forName("com.bluearcyiji.BuildConfig")
@@ -188,7 +182,7 @@ fun MainScreen() {
         if (webClientId.isBlank()) {
             snackbarHostState.showSnackbar(t("msg_sign_in_unavailable"))
             loginInProgress = false
-            return
+            return false
         }
 
         val credentialManager = CredentialManager.create(context)
@@ -227,6 +221,7 @@ fun MainScreen() {
                         loggedInUserName =
                             googleCredential.displayName ?: googleCredential.id
                         showProfileMenu = false
+                        loginSuccess = true
                         snackbarHostState.showSnackbar(t("msg_signed_in_success"))
                     }
                     .onFailure { error ->
@@ -242,18 +237,31 @@ fun MainScreen() {
         } finally {
             loginInProgress = false
         }
+        return loginSuccess
     }
 
-    suspend fun handleForbiddenAndRelogin() {
+    suspend fun handleForbiddenAndRelogin(): Boolean {
         AuthManager.clearToken()
         serverToken = null
         loggedInUserName = null
         showProfileMenu = false
 
-        if (loginInProgress) return
+        if (loginInProgress) return false
 
         snackbarHostState.showSnackbar(t("msg_session_expired_sign_in_again"))
-        startLoginFlow()
+        return startLoginFlow()
+    }
+
+    fun clearTapData() {
+        tapDetails.clear()
+        clickCount = 0
+        startTime = 0
+        lastClickTime = 0
+        totalInterval = 0
+        maxInterval = 0
+        minInterval = Long.MAX_VALUE
+        duration = 0
+        isPaused = false
     }
 
     LaunchedEffect(startTime, isPaused) {
@@ -263,53 +271,17 @@ fun MainScreen() {
         }
     }
 
-    LaunchedEffect(isResetPressed) {
-        if (isResetPressed) {
-            isResetting = true
-            holdReached = false
-            resetProgress = 0f
-
-            val steps = 20
-            repeat(steps) {
-                delay(100)
-                resetProgress = (it + 1) / steps.toFloat()
-            }
-
-            // Hold threshold reached; actual reset happens on release.
-            holdReached = true
-        } else {
-            if (isResetting && holdReached) {
-                clickCount = 0
-                startTime = 0
-                lastClickTime = 0
-                totalInterval = 0
-                maxInterval = 0
-                minInterval = Long.MAX_VALUE
-                duration = 0
-                isPaused = false
-                tapRecords.clear()
-            }
-
-            isResetting = false
-            holdReached = false
-            resetProgress = 0f
-        }
-    }
-
     Scaffold(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
-            if (resetProgress > 0f) {
+            if (isSaving) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .statusBarsPadding()
                         .padding(top = 8.dp)
                 ) {
-                    LinearProgressIndicator(
-                        progress = { resetProgress },
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                 }
             }
         },
@@ -432,8 +404,8 @@ fun MainScreen() {
                         lastClickTime = now
                         val sequence = clickCount + 1
                         clickCount = sequence
-                        tapRecords.add(
-                            RecordRequest(
+                        tapDetails.add(
+                            RecordDetail(
                                 sequence = sequence,
                                 clickTime = timeFormatter.format(Date()),
                             )
@@ -470,34 +442,63 @@ fun MainScreen() {
                 ) {
                     OutlinedButton(
                         onClick = {
+                            if (startTime > 0L) {
+                                isPaused = true
+                            }
                             scope.launch {
-                                if (tapRecords.isEmpty()) {
+                                if (tapDetails.isEmpty()) {
                                     snackbarHostState.showSnackbar(t("msg_no_records_to_save"))
                                     return@launch
                                 }
-                                serverApiRepository.saveRecords(tapRecords.toList())
-                                    .onSuccess {
-                                        tapRecords.clear()
-                                        clickCount = 0
-                                        startTime = 0
-                                        lastClickTime = 0
-                                        totalInterval = 0
-                                        maxInterval = 0
-                                        minInterval = Long.MAX_VALUE
-                                        duration = 0
-                                        isPaused = false
+
+                                if (!isLoggedIn) {
+                                    val loginSuccess = startLoginFlow()
+                                    if (!loginSuccess) {
+                                        return@launch
+                                    }
+                                }
+
+                                val request = RecordRequest(
+                                    avgTime = avgIntervalSec.toFloat(),
+                                    maxTime = maxIntervalSec.toFloat(),
+                                    minTime = minIntervalSec.toFloat(),
+                                    durationTime = durationSec.toFloat(),
+                                    totalClick = clickCount,
+                                    details = tapDetails.toList(),
+                                )
+
+                                isSaving = true
+                                try {
+                                    val saveResult = serverApiRepository.saveRecords(request)
+                                    if (saveResult.isSuccess) {
+                                        clearTapData()
                                         snackbarHostState.showSnackbar(t("msg_records_saved_successfully"))
+                                        return@launch
                                     }
-                                    .onFailure { error ->
-                                        if (error.isForbidden()) {
-                                            handleForbiddenAndRelogin()
-                                        } else {
-                                            snackbarHostState.showSnackbar(appErrorMessage("action_save", error))
+
+                                    val saveError = saveResult.exceptionOrNull()
+                                    if (saveError != null && shouldRelogin(saveError)) {
+                                        val reloginSuccess = handleForbiddenAndRelogin()
+                                        if (reloginSuccess) {
+                                            val retryResult = serverApiRepository.saveRecords(request)
+                                            if (retryResult.isSuccess) {
+                                                clearTapData()
+                                                snackbarHostState.showSnackbar(t("msg_records_saved_successfully"))
+                                            } else {
+                                                val retryError = retryResult.exceptionOrNull()
+                                                snackbarHostState.showSnackbar(
+                                                    appErrorMessage("action_save", retryError)
+                                                )
+                                            }
                                         }
+                                    } else {
+                                        snackbarHostState.showSnackbar(appErrorMessage("action_save", saveError))
                                     }
+                                } finally {
+                                    isSaving = false
+                                }
                             }
                         },
-                        interactionSource = resetInteraction,
                         modifier = Modifier.weight(1f)
                     ) {
                         Text(t("reset_and_save"))

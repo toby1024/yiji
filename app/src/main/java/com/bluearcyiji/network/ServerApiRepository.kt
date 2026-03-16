@@ -9,14 +9,14 @@ class ServerApiRepository(
     private val apiService: ApiService = ApiClient.service,
 ) {
 
-    private fun isBusinessSuccess(code: Int): Boolean {
-        return code == 200
+    private fun isBusinessSuccess(code: String?): Boolean {
+        return code == "200"
     }
 
     private fun <T> unwrapOrThrow(baseResponse: BaseResponse<T>?): T {
         val payload = baseResponse ?: error("Empty response body")
         if (!isBusinessSuccess(payload.code)) {
-            error("Business error ${payload.code}: ${payload.message}")
+            error("Business error ${payload.code}: ${payload.message.orEmpty()}")
         }
         return payload.data ?: error("Empty response data")
     }
@@ -64,16 +64,22 @@ class ServerApiRepository(
         }
     }
 
-    suspend fun saveRecords(records: List<RecordRequest>): Result<Unit> {
+    suspend fun saveRecords(record: RecordRequest): Result<Unit> {
         return runCatching {
-            val response = apiService.saveRecords(records)
+            val response = apiService.saveRecords(record)
             if (!response.isSuccessful) {
                 val errorBody = response.errorBody()?.string().orEmpty()
                 throwHttpError(response.code(), response.message(), errorBody)
             }
-            val payload = response.body() ?: error("Empty response body")
+            val payload = response.body() ?: return@runCatching Unit
             if (!isBusinessSuccess(payload.code)) {
-                error("Business error ${payload.code}: ${payload.message}")
+                if (payload.code == "403") {
+                    throw ApiHttpException(
+                        statusCode = 403,
+                        message = "Business error 403: ${payload.message.orEmpty()}",
+                    )
+                }
+                error("Business error ${payload.code}: ${payload.message.orEmpty()}")
             }
             Unit
         }

@@ -13,8 +13,8 @@ data class UserLoginRequest(
 )
 
 data class BaseResponse<T>(
-    val code: Int,
-    val message: String,
+    val code: String?,
+    val message: String?,
     val data: T?,
 )
 
@@ -43,6 +43,15 @@ data class SkuListResponse(
 )
 
 data class RecordRequest(
+    val avgTime: Float,
+    val maxTime: Float,
+    val minTime: Float,
+    val durationTime: Float,
+    val totalClick: Int,
+    val details: List<RecordDetail>,
+)
+
+data class RecordDetail(
     val sequence: Int,
     val clickTime: String,
 )
@@ -59,6 +68,6 @@ interface ApiService {
     suspend fun login(@Body request: UserLoginRequest): Response<BaseResponse<UserLoginData>>
 
     @POST("record/save")
-    suspend fun saveRecords(@Body request: List<RecordRequest>): Response<BaseResponse<Any>>
+    suspend fun saveRecords(@Body request: RecordRequest): Response<BaseResponse<Any>>
 }
 

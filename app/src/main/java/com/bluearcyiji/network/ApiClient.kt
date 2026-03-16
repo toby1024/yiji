@@ -31,10 +31,14 @@ object ApiClient {
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
         level = if (AppConfig.debug) {
-            HttpLoggingInterceptor.Level.BASIC
+            HttpLoggingInterceptor.Level.BODY
         } else {
             HttpLoggingInterceptor.Level.NONE
         }
+        redactHeader("Authorization")
+        redactHeader("X-Api-Key")
+        redactHeader("X-App-Key")
+        redactHeader("X-Signature")
     }
 
     private val okHttpClient = OkHttpClient.Builder()
