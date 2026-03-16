@@ -38,6 +38,8 @@ import com.bluearcyiji.network.SkuItem
 import com.bluearcyiji.ui.theme.YIJITheme
 import com.bluearcyiji.ui.AppTextKey
 import com.bluearcyiji.ui.PremiumSkuList
+import com.bluearcyiji.ui.MessageTone
+import com.bluearcyiji.ui.TopMessageHost
 import com.bluearcyiji.ui.appText
 import com.bluearcyiji.ui.formatSecondsLabel
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
@@ -63,6 +65,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+
 @Preview(
     showBackground = true,
     showSystemUi = true
@@ -75,6 +78,7 @@ fun MainScreen() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+    var messageTone by remember { mutableStateOf(MessageTone.Info) }
     val serverApiRepository = remember { ServerApiRepository() }
     val appContext = context.applicationContext
     LaunchedEffect(appContext) {
@@ -196,6 +200,12 @@ fun MainScreen() {
         return t("error_action_failed", action, detail)
     }
 
+    suspend fun showTopMessage(message: String, tone: MessageTone) {
+        messageTone = tone
+        snackbarHostState.currentSnackbarData?.dismiss()
+        snackbarHostState.showSnackbar(message)
+    }
+
     fun formatPriceInYuan(cents: Int): String {
         return String.format(Locale.US, "¥%.2f", cents / 100.0)
     }
@@ -211,7 +221,7 @@ fun MainScreen() {
                 .get(null) as? String
         }.getOrNull() ?: ""
         if (webClientId.isBlank()) {
-            snackbarHostState.showSnackbar(t("msg_sign_in_unavailable"))
+            showTopMessage(t("msg_sign_in_unavailable"), MessageTone.Error)
             loginInProgress = false
             return false
         }
@@ -253,18 +263,18 @@ fun MainScreen() {
                             googleCredential.displayName ?: googleCredential.id
                         showProfileMenu = false
                         loginSuccess = true
-                        snackbarHostState.showSnackbar(t("msg_signed_in_success"))
+                        showTopMessage(t("msg_signed_in_success"), MessageTone.Success)
                     }
                     .onFailure { error ->
-                        snackbarHostState.showSnackbar(appErrorMessage("action_sign_in", error))
+                        showTopMessage(appErrorMessage("action_sign_in", error), MessageTone.Error)
                     }
             } else {
-                snackbarHostState.showSnackbar(t("msg_unsupported_sign_in_credential"))
+                showTopMessage(t("msg_unsupported_sign_in_credential"), MessageTone.Error)
             }
         } catch (_: GetCredentialCancellationException) {
             // User dismissed the account chooser.
         } catch (e: GetCredentialException) {
-            snackbarHostState.showSnackbar(appErrorMessage("action_sign_in", e))
+            showTopMessage(appErrorMessage("action_sign_in", e), MessageTone.Error)
         } finally {
             loginInProgress = false
         }
@@ -279,7 +289,7 @@ fun MainScreen() {
 
         if (loginInProgress) return false
 
-        snackbarHostState.showSnackbar(t("msg_session_expired_sign_in_again"))
+        showTopMessage(t("msg_session_expired_sign_in_again"), MessageTone.Info)
         return startLoginFlow()
     }
 
@@ -337,8 +347,9 @@ fun MainScreen() {
         }
     }
 
-    Scaffold(
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+        snackbarHost = {},
         topBar = {
             if (isSaving) {
                 Box(
@@ -396,7 +407,7 @@ fun MainScreen() {
                                 onClick = {
                                     showProfileMenu = false
                                     scope.launch {
-                                        snackbarHostState.showSnackbar(t("msg_account_page_coming_soon"))
+                                        showTopMessage(t("msg_account_page_coming_soon"), MessageTone.Info)
                                     }
                                 }
                             )
@@ -408,7 +419,7 @@ fun MainScreen() {
                                     loggedInUserName = null
                                     showProfileMenu = false
                                     scope.launch {
-                                        snackbarHostState.showSnackbar(t("msg_signed_out_success"))
+                                        showTopMessage(t("msg_signed_out_success"), MessageTone.Success)
                                     }
                                 }
                             )
@@ -513,7 +524,7 @@ fun MainScreen() {
                             }
                             scope.launch {
                                 if (tapDetails.isEmpty()) {
-                                    snackbarHostState.showSnackbar(t("msg_no_records_to_save"))
+                                    showTopMessage(t("msg_no_records_to_save"), MessageTone.Info)
                                     return@launch
                                 }
 
@@ -538,7 +549,7 @@ fun MainScreen() {
                                     val saveResult = serverApiRepository.saveRecords(request)
                                     if (saveResult.isSuccess) {
                                         clearTapData()
-                                        snackbarHostState.showSnackbar(t("msg_records_saved_successfully"))
+                                        showTopMessage(t("msg_records_saved_successfully"), MessageTone.Success)
                                         return@launch
                                     }
 
@@ -549,14 +560,15 @@ fun MainScreen() {
                                             val retryResult = serverApiRepository.saveRecords(request)
                                             if (retryResult.isSuccess) {
                                                 clearTapData()
-                                                snackbarHostState.showSnackbar(t("msg_records_saved_successfully"))
+                                                showTopMessage(t("msg_records_saved_successfully"), MessageTone.Success)
                                             } else {
                                                 val retryError = retryResult.exceptionOrNull()
                                                 if (retryError != null && shouldShowPremium(retryError)) {
                                                     loadPremiumPlansAndShowDialog()
                                                 } else {
-                                                    snackbarHostState.showSnackbar(
-                                                        appErrorMessage("action_save", retryError)
+                                                    showTopMessage(
+                                                        appErrorMessage("action_save", retryError),
+                                                        MessageTone.Error
                                                     )
                                                 }
                                             }
@@ -564,7 +576,7 @@ fun MainScreen() {
                                     } else if (saveError != null && shouldShowPremium(saveError)) {
                                         loadPremiumPlansAndShowDialog()
                                     } else {
-                                        snackbarHostState.showSnackbar(appErrorMessage("action_save", saveError))
+                                        showTopMessage(appErrorMessage("action_save", saveError), MessageTone.Error)
                                     }
                                 } finally {
                                     isSaving = false
@@ -693,6 +705,13 @@ fun MainScreen() {
                 }
             }
         }
+        }
+
+        TopMessageHost(
+            hostState = snackbarHostState,
+            tone = messageTone,
+            topSpacing = 10.dp,
+        )
     }
 }
 
