@@ -71,7 +71,7 @@ class ServerApiRepository(
                 val errorBody = response.errorBody()?.string().orEmpty()
                 throwHttpError(response.code(), response.message(), errorBody)
             }
-            val payload = response.body() ?: return@runCatching Unit
+            val payload = response.body() ?: return@runCatching
             if (!isBusinessSuccess(payload.code)) {
                 if (payload.code == "402") {
                     throw ApiHttpException(
