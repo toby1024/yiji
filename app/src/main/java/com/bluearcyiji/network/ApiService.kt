@@ -12,6 +12,10 @@ data class UserLoginRequest(
     val email: String,
 )
 
+data class RefreshTokenRequest(
+    val refreshToken: String,
+)
+
 data class BaseResponse<T>(
     val code: String?,
     val message: String?,
@@ -67,6 +71,9 @@ interface ApiService {
 
     @POST("auth/google_login")
     suspend fun login(@Body request: UserLoginRequest): Response<BaseResponse<UserLoginData>>
+
+    @POST("auth/refresh_token")
+    suspend fun refreshToken(@Body request: RefreshTokenRequest): Response<BaseResponse<UserLoginData>>
 
     @POST("record/save")
     suspend fun saveRecords(@Body request: RecordRequest): Response<BaseResponse<Any>>

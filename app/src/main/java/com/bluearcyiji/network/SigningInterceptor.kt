@@ -3,6 +3,7 @@ package com.bluearcyiji.network
 import com.bluearcyiji.auth.AuthManager
 import okhttp3.Interceptor
 import okhttp3.Response
+import kotlinx.coroutines.runBlocking
 import java.util.UUID
 
 class SigningInterceptor(
@@ -10,9 +11,30 @@ class SigningInterceptor(
     private val apiSecret: String,
 ) : Interceptor {
 
+    private val repository = ServerApiRepository()
+
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
         val requestBuilder = request.newBuilder()
+        val path = request.url.encodedPath
+        val skipAuth = path.endsWith("/auth/google_login") || path.endsWith("/auth/refresh_token")
+
+        if (!skipAuth && AuthManager.shouldRefreshToken()) {
+            runBlocking {
+                val refreshToken = AuthManager.getRefreshToken()
+                if (!refreshToken.isNullOrBlank()) {
+                    repository.refreshAccessToken(refreshToken)
+                        .onSuccess { session ->
+                            AuthManager.saveSession(
+                                token = session.token,
+                                refreshToken = session.refreshToken,
+                                expiresAtEpochSeconds = session.expiresAtEpochSeconds,
+                            )
+                        }
+                }
+            }
+        }
+
         val serverToken = AuthManager.getToken()
         val timestamp = System.currentTimeMillis() / 1000
 
@@ -29,7 +51,7 @@ class SigningInterceptor(
             return chain.proceed(skuRequest)
         }
 
-        if (!serverToken.isNullOrBlank() && !request.url.encodedPath.endsWith("/auth/google_login")) {
+        if (!serverToken.isNullOrBlank() && !skipAuth) {
             requestBuilder.header("Authorization", "Bearer $serverToken")
         }
         val nonce = UUID.randomUUID().toString().replace("-", "")

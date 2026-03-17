@@ -5,6 +5,12 @@ class ApiHttpException(
     override val message: String,
 ) : RuntimeException(message)
 
+data class AuthSession(
+    val token: String,
+    val refreshToken: String,
+    val expiresAtEpochSeconds: Long,
+)
+
 class ServerApiRepository(
     private val apiService: ApiService = ApiClient.service,
 ) {
@@ -47,7 +53,15 @@ class ServerApiRepository(
         }
     }
 
-    suspend fun loginWithGoogleIdToken(idToken: String, email: String): Result<String> {
+    private fun UserLoginData.toAuthSession(nowEpochSeconds: Long = System.currentTimeMillis() / 1000): AuthSession {
+        return AuthSession(
+            token = token,
+            refreshToken = refreshToken,
+            expiresAtEpochSeconds = nowEpochSeconds + expiresIn,
+        )
+    }
+
+    suspend fun loginWithGoogleIdToken(idToken: String, email: String): Result<AuthSession> {
         return runCatching {
             val response = apiService.login(
                 UserLoginRequest(
@@ -59,8 +73,24 @@ class ServerApiRepository(
                 val errorBody = response.errorBody()?.string().orEmpty()
                 throwHttpError(response.code(), response.message(), errorBody)
             }
-            unwrapOrThrow(response.body()).token.takeIf { it.isNotBlank() }
-                ?: error("Empty token from server")
+            val loginData = unwrapOrThrow(response.body())
+            loginData.token.takeIf { it.isNotBlank() } ?: error("Empty token from server")
+            loginData.refreshToken.takeIf { it.isNotBlank() } ?: error("Empty refresh token from server")
+            loginData.toAuthSession()
+        }
+    }
+
+    suspend fun refreshAccessToken(refreshToken: String): Result<AuthSession> {
+        return runCatching {
+            val response = apiService.refreshToken(RefreshTokenRequest(refreshToken = refreshToken))
+            if (!response.isSuccessful) {
+                val errorBody = response.errorBody()?.string().orEmpty()
+                throwHttpError(response.code(), response.message(), errorBody)
+            }
+            val loginData = unwrapOrThrow(response.body())
+            loginData.token.takeIf { it.isNotBlank() } ?: error("Empty token from refresh API")
+            loginData.refreshToken.takeIf { it.isNotBlank() } ?: error("Empty refresh token from refresh API")
+            loginData.toAuthSession()
         }
     }
 

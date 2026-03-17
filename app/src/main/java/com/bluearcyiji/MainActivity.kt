@@ -124,8 +124,6 @@ fun MainScreen() {
     LaunchedEffect(serverToken) {
         if (serverToken.isNullOrBlank()) {
             AuthManager.clearToken()
-        } else {
-            AuthManager.saveToken(serverToken.orEmpty())
         }
     }
 
@@ -264,9 +262,13 @@ fun MainScreen() {
                         idToken = googleCredential.idToken,
                         email = googleCredential.id,
                     )
-                    .onSuccess { token ->
-                        AuthManager.saveToken(token)
-                        serverToken = token
+                    .onSuccess { session ->
+                        AuthManager.saveSession(
+                            token = session.token,
+                            refreshToken = session.refreshToken,
+                            expiresAtEpochSeconds = session.expiresAtEpochSeconds,
+                        )
+                        serverToken = session.token
                         loggedInUserName = googleCredential.displayName ?: googleCredential.id
                         showProfileMenu = false
                         loginSuccess = true

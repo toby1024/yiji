@@ -6,6 +6,10 @@ object AuthManager {
 
     @Volatile
     private var inMemoryToken: String? = null
+    @Volatile
+    private var inMemoryRefreshToken: String? = null
+    @Volatile
+    private var expiresAtEpochSeconds: Long = 0L
 
     @Volatile
     private var initialized = false
@@ -17,6 +21,8 @@ object AuthManager {
         if (initialized) return
         tokenStore = AuthTokenStore(context.applicationContext)
         inMemoryToken = tokenStore.getToken()
+        inMemoryRefreshToken = tokenStore.getRefreshToken()
+        expiresAtEpochSeconds = tokenStore.getExpiresAtEpochSeconds()
         initialized = true
     }
 
@@ -24,11 +30,25 @@ object AuthManager {
         return inMemoryToken
     }
 
-    fun saveToken(token: String) {
+    fun saveSession(token: String, refreshToken: String, expiresAtEpochSeconds: Long) {
         if (::tokenStore.isInitialized) {
-            tokenStore.saveToken(token)
+            tokenStore.saveSession(token, refreshToken, expiresAtEpochSeconds)
         }
         inMemoryToken = token
+        inMemoryRefreshToken = refreshToken
+        this.expiresAtEpochSeconds = expiresAtEpochSeconds
+    }
+
+    fun getRefreshToken(): String? {
+        return inMemoryRefreshToken
+    }
+
+    fun shouldRefreshToken(bufferSeconds: Long = 60L): Boolean {
+        val token = inMemoryToken
+        if (token.isNullOrBlank()) return false
+        if (expiresAtEpochSeconds <= 0L) return false
+        val nowSeconds = System.currentTimeMillis() / 1000
+        return nowSeconds + bufferSeconds >= expiresAtEpochSeconds
     }
 
     fun clearToken() {
@@ -36,6 +56,8 @@ object AuthManager {
             tokenStore.clearToken()
         }
         inMemoryToken = null
+        inMemoryRefreshToken = null
+        expiresAtEpochSeconds = 0L
     }
 }
 
