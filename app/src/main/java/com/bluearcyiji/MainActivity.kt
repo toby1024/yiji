@@ -35,6 +35,8 @@ import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
 import androidx.lifecycle.ViewModelProvider
+import com.bluearcyiji.billing.BillingEvent
+import com.bluearcyiji.billing.BillingManager
 import com.bluearcyiji.main.GoogleSignInResult
 import com.bluearcyiji.main.MainUiEffect
 import com.bluearcyiji.main.MainViewModel
@@ -81,6 +83,10 @@ fun MainScreen(vm: MainViewModel) {
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     val state by vm.state.collectAsState()
+    val activity = context as? ComponentActivity
+    val billingManager = remember(activity) {
+        if (activity == null) null else BillingManager(activity.applicationContext).apply { connect() }
+    }
 
     val durationSec = state.durationMillis / 1000.0
     val avgInterval = if (state.clickCount > 1) state.totalIntervalMillis / (state.clickCount - 1) else 0L
@@ -181,6 +187,27 @@ fun MainScreen(vm: MainViewModel) {
         }
     }
 
+    LaunchedEffect(billingManager) {
+        val bm = billingManager ?: return@LaunchedEffect
+        bm.events.collect { event ->
+            when (event) {
+                is BillingEvent.PurchaseSuccess -> {
+                    // 这里先做本地成功提示；服务端发放权益可在后续接入你的后端校验
+                    vm.showSuccessMessage("购买成功")
+                    vm.onPremiumDismiss()
+                }
+
+                BillingEvent.UserCancelled -> {
+                    vm.showInfoMessage("已取消支付")
+                }
+
+                is BillingEvent.Error -> {
+                    vm.showErrorMessage("支付失败：${event.message}")
+                }
+            }
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             snackbarHost = {},
@@ -271,7 +298,19 @@ fun MainScreen(vm: MainViewModel) {
             cancelAnytimeText = "Cancel anytime",
             onDismiss = vm::onPremiumDismiss,
             onSkuSelected = { sku -> vm.onPremiumSkuSelected(sku.skuId) },
-            onContinue = { /* TODO purchase */ },
+            onContinue = {
+                val skuId = state.selectedPremiumSkuId
+                val bm = billingManager
+                if (activity == null || bm == null) {
+                    vm.showErrorMessage("无法发起支付：缺少 Activity")
+                    return@PremiumOverlayDialog
+                }
+                if (skuId.isNullOrBlank()) {
+                    vm.showErrorMessage("请选择订阅方案")
+                    return@PremiumOverlayDialog
+                }
+                bm.launchSubscriptionPurchase(activity, skuId)
+            },
             priceFormatter = ::formatPriceInYuan,
         )
 

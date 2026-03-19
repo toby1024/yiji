@@ -2,7 +2,7 @@
 <network-security-config>
 
     <domain-config cleartextTrafficPermitted="true">
-        <domain>192.168.0.88</domain>
+        <domain>192.168.50.41</domain>
     </domain-config>
 
 </network-security-config>

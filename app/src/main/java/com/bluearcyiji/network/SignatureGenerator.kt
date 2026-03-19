@@ -4,23 +4,38 @@ import android.util.Base64
 import okhttp3.Request
 import okio.Buffer
 import java.security.MessageDigest
+import java.security.SecureRandom
 import java.util.Locale
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
 object SignatureGenerator {
 
+    fun generateNonce(): String {
+        val random = SecureRandom()
+        val bytes = ByteArray(16)
+        random.nextBytes(bytes)
+        return bytes.joinToString("") { "%02x".format(it) }
+    }
+
     fun createCanonicalString(
         request: Request,
         timestampSeconds: Long,
         nonce: String,
     ): String {
+        val method = request.method.uppercase(Locale.US)
+        val path = request.url.encodedPath
         val query = canonicalizeEncodedQuery(request.url.encodedQuery)
+        val bodyHash = bodySha256Hex(request)
+        
         return listOf(
+            method,
+            path,
             query,
             timestampSeconds.toString(),
             nonce,
-        ).joinToString("")
+            bodyHash,
+        ).joinToString("\n")
     }
 
     private fun canonicalizeEncodedQuery(encodedQuery: String?): String {

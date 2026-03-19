@@ -79,6 +79,19 @@ class MainViewModel(
         emitMessage("msg_account_page_coming_soon", MessageTone.Info)
     }
 
+    fun showInfoMessage(message: String) {
+        emitMessage(message, MessageTone.Info)
+    }
+
+    fun showSuccessMessage(message: String) {
+        emitMessage(message, MessageTone.Success)
+    }
+
+    fun showErrorMessage(message: String) {
+        _state.update { it.copy(messageTone = MessageTone.Error) }
+        viewModelScope.launch { _effects.send(MainUiEffect.ShowTopMessage(message, MessageTone.Error)) }
+    }
+
     fun onTap() {
         val now = nowMillis()
         _state.update { s ->
