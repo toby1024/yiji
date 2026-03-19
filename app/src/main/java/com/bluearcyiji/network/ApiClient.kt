@@ -41,6 +41,22 @@ object ApiClient {
         redactHeader("X-Signature")
     }
 
+    private val authOkHttpClient = OkHttpClient.Builder()
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(15, TimeUnit.SECONDS)
+        .addInterceptor(loggingInterceptor)
+        .build()
+
+    // 必须先初始化：SigningInterceptor 构造/refresh 逻辑会用到它
+    val authService: ApiService by lazy {
+        Retrofit.Builder()
+            .baseUrl(normalizeBaseUrl(AppConfig.apiBaseUrl))
+            .client(authOkHttpClient)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(ApiService::class.java)
+    }
+
     private val okHttpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(15, TimeUnit.SECONDS)

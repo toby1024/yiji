@@ -11,7 +11,7 @@ class SigningInterceptor(
     private val apiSecret: String,
 ) : Interceptor {
 
-    private val repository = ServerApiRepository()
+    private val repository = ServerApiRepository(apiService = ApiClient.authService)
 
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
