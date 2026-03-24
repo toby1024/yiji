@@ -6,6 +6,7 @@ class ApiHttpException(
 ) : RuntimeException(message)
 
 data class AuthSession(
+    val userId: String,
     val token: String,
     val refreshToken: String,
     val expiresAtEpochSeconds: Long,
@@ -55,6 +56,7 @@ class ServerApiRepository(
 
     private fun UserLoginData.toAuthSession(nowEpochSeconds: Long = System.currentTimeMillis() / 1000): AuthSession {
         return AuthSession(
+            userId = userId,
             token = token,
             refreshToken = refreshToken,
             expiresAtEpochSeconds = nowEpochSeconds + expiresIn,

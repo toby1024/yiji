@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 
 class BillingManager(
     context: Context,
+    private val obfuscatedAccountIdProvider: (() -> String?)? = null,
 ) : PurchasesUpdatedListener {
     companion object {
         private const val TAG = "BillingManager"
@@ -89,7 +90,11 @@ class BillingManager(
         billingClient.endConnection()
     }
 
-    fun launchSubscriptionPurchase(activity: Activity, productId: String) {
+    fun launchSubscriptionPurchase(
+        activity: Activity,
+        productId: String,
+        obfuscatedExternalAccountId: String? = null,
+    ) {
         if (!billingClient.isReady) {
             eventsChannel.trySend(BillingEvent.Error("Billing not ready"))
             Log.w(TAG, "launchSubscriptionPurchase aborted: billing client not ready")
@@ -121,9 +126,23 @@ class BillingManager(
                 }
                 .build()
 
-            val flowParams = BillingFlowParams.newBuilder()
+            val flowParamsBuilder = BillingFlowParams.newBuilder()
                 .setProductDetailsParamsList(listOf(productParams))
-                .build()
+
+            // Prioritize per-call value, then fallback to global provider.
+            val normalizedObfuscatedAccountId = obfuscatedExternalAccountId
+                ?.trim()
+                ?.takeIf { it.isNotBlank() }
+                ?: obfuscatedAccountIdProvider
+                    ?.invoke()
+                    ?.trim()
+                    ?.takeIf { it.isNotBlank() }
+
+            if (normalizedObfuscatedAccountId != null) {
+                flowParamsBuilder.setObfuscatedAccountId(normalizedObfuscatedAccountId)
+            }
+
+            val flowParams = flowParamsBuilder.build()
 
             val result = billingClient.launchBillingFlow(activity, flowParams)
             if (result.responseCode != BillingClient.BillingResponseCode.OK) {
@@ -234,4 +253,3 @@ sealed interface BillingEvent {
     data object UserCancelled : BillingEvent
     data class Error(val message: String) : BillingEvent
 }
-

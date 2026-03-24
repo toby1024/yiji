@@ -54,6 +54,7 @@ import com.bluearcyiji.ui.formatSecondsLabel
 import com.bluearcyiji.ui.theme.YIJITheme
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import java.security.MessageDigest
 import java.util.Locale
 
 class MainActivity : ComponentActivity() {
@@ -317,7 +318,11 @@ fun MainScreen(vm: MainViewModel) {
                     vm.showErrorMessage("请选择订阅方案")
                     return@PremiumOverlayDialog
                 }
-                bm.launchSubscriptionPurchase(activity, skuId)
+                bm.launchSubscriptionPurchase(
+                    activity = activity,
+                    productId = skuId,
+                    obfuscatedExternalAccountId = obfuscateExternalAccountId(state.billingAccountId),
+                )
             },
             priceFormatter = ::formatPriceInYuan,
         )
@@ -328,6 +333,10 @@ fun MainScreen(vm: MainViewModel) {
             topSpacing = 24.dp,
         )
     }
+}
+
+private fun obfuscateExternalAccountId(rawAccountId: String?): String? {
+    return rawAccountId
 }
 
 private fun resolveMessage(

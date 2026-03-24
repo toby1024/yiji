@@ -68,6 +68,7 @@ class MainViewModel(
             it.copy(
                 serverToken = null,
                 loggedInUserName = null,
+                billingAccountId = null,
                 showProfileMenu = false,
             )
         }
@@ -176,6 +177,7 @@ class MainViewModel(
                         it.copy(
                             serverToken = session.token,
                             loggedInUserName = result.displayName ?: result.email,
+                            billingAccountId = session.userId,
                             showProfileMenu = false,
                             loginInProgress = false,
                             messageTone = MessageTone.Success,
@@ -349,6 +351,7 @@ class MainViewModel(
             it.copy(
                 serverToken = null,
                 loggedInUserName = null,
+                billingAccountId = null,
                 showProfileMenu = false,
                 messageTone = MessageTone.Info,
             )

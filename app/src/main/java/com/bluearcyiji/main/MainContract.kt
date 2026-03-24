@@ -6,6 +6,7 @@ import com.bluearcyiji.ui.MessageTone
 
 data class MainUiState(
     val loggedInUserName: String? = null,
+    val billingAccountId: String? = null,
     val serverToken: String? = null,
     val showProfileMenu: Boolean = false,
     val loginInProgress: Boolean = false,
@@ -28,12 +29,12 @@ data class MainUiState(
     val isLoggedIn: Boolean get() = loggedInUserName != null || !serverToken.isNullOrBlank()
 }
 
-sealed interface MainUiEffect {
+public sealed interface MainUiEffect {
     data object StartGoogleSignIn : MainUiEffect
     data class ShowTopMessage(val message: String, val tone: MessageTone) : MainUiEffect
 }
 
-data class GoogleSignInResult(
+public final data class GoogleSignInResult(
     val idToken: String,
     val email: String,
     val displayName: String?,
