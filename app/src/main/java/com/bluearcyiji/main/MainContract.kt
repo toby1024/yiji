@@ -8,6 +8,7 @@ data class MainUiState(
     val loggedInUserName: String? = null,
     val billingAccountId: String? = null,
     val serverToken: String? = null,
+    val isRestoringSession: Boolean = false,
     val premiumInfo: String? = null,
     val premiumExpireTimeEpochSeconds: Long? = null,
     val currentSubscriptionSkuId: String? = null,
@@ -32,12 +33,12 @@ data class MainUiState(
     val isLoggedIn: Boolean get() = loggedInUserName != null || !serverToken.isNullOrBlank()
 }
 
-public sealed interface MainUiEffect {
+sealed interface MainUiEffect {
     data object StartGoogleSignIn : MainUiEffect
     data class ShowTopMessage(val message: String, val tone: MessageTone) : MainUiEffect
 }
 
-public final data class GoogleSignInResult(
+data class GoogleSignInResult(
     val idToken: String,
     val email: String,
     val displayName: String?,

@@ -32,6 +32,7 @@ enum class AppTextKey {
     MsgSignedOutSuccess,
     MsgNoRecordsToSave,
     MsgRecordsSavedSuccessfully,
+    MsgRestoringSession,
     MsgPremiumRequired,
     PremiumDialogTitle,
     PremiumDialogLoading,
@@ -117,6 +118,10 @@ private val appTextCatalog = mapOf(
     AppTextKey.MsgRecordsSavedSuccessfully to AppTextEntry(
         "Records saved successfully.",
         "数据保存成功。",
+    ),
+    AppTextKey.MsgRestoringSession to AppTextEntry(
+        "Restoring your sign-in session. Please wait a moment.",
+        "正在恢复登录状态，请稍候。",
     ),
     AppTextKey.MsgPremiumRequired to AppTextEntry(
         "Premium subscription is required for this action.",

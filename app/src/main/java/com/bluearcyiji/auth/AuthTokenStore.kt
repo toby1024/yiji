@@ -11,6 +11,7 @@ class AuthTokenStore(context: Context) {
         refreshToken: String,
         expiresAtEpochSeconds: Long,
         userId: String,
+        displayName: String?,
         premiumInfo: String,
         premiumExpireTimeEpochSeconds: Long,
     ) {
@@ -19,6 +20,7 @@ class AuthTokenStore(context: Context) {
             .putString(KEY_REFRESH_TOKEN, refreshToken)
             .putLong(KEY_EXPIRES_AT_EPOCH_SECONDS, expiresAtEpochSeconds)
             .putString(KEY_USER_ID, userId)
+            .putString(KEY_DISPLAY_NAME, displayName)
             .putString(KEY_PREMIUM_INFO, premiumInfo)
             .putLong(KEY_PREMIUM_EXPIRE_EPOCH_SECONDS, premiumExpireTimeEpochSeconds)
             .apply()
@@ -40,6 +42,10 @@ class AuthTokenStore(context: Context) {
         return preferences.getString(KEY_USER_ID, null)
     }
 
+    fun getDisplayName(): String? {
+        return preferences.getString(KEY_DISPLAY_NAME, null)
+    }
+
     fun getPremiumInfo(): String? {
         return preferences.getString(KEY_PREMIUM_INFO, null)
     }
@@ -54,6 +60,7 @@ class AuthTokenStore(context: Context) {
             .remove(KEY_REFRESH_TOKEN)
             .remove(KEY_EXPIRES_AT_EPOCH_SECONDS)
             .remove(KEY_USER_ID)
+            .remove(KEY_DISPLAY_NAME)
             .remove(KEY_PREMIUM_INFO)
             .remove(KEY_PREMIUM_EXPIRE_EPOCH_SECONDS)
             .apply()
@@ -65,6 +72,7 @@ class AuthTokenStore(context: Context) {
         private const val KEY_REFRESH_TOKEN = "refresh_token"
         private const val KEY_EXPIRES_AT_EPOCH_SECONDS = "expires_at_epoch_seconds"
         private const val KEY_USER_ID = "user_id"
+        private const val KEY_DISPLAY_NAME = "display_name"
         private const val KEY_PREMIUM_INFO = "premium_info"
         private const val KEY_PREMIUM_EXPIRE_EPOCH_SECONDS = "premium_expire_epoch_seconds"
     }

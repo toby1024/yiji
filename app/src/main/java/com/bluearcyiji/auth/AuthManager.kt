@@ -13,6 +13,8 @@ object AuthManager {
     @Volatile
     private var inMemoryUserId: String? = null
     @Volatile
+    private var inMemoryDisplayName: String? = null
+    @Volatile
     private var inMemoryPremiumInfo: String? = null
     @Volatile
     private var premiumExpireTimeEpochSeconds: Long = 0L
@@ -30,6 +32,7 @@ object AuthManager {
         inMemoryRefreshToken = tokenStore.getRefreshToken()
         expiresAtEpochSeconds = tokenStore.getExpiresAtEpochSeconds()
         inMemoryUserId = tokenStore.getUserId()
+        inMemoryDisplayName = tokenStore.getDisplayName()
         inMemoryPremiumInfo = tokenStore.getPremiumInfo()
         premiumExpireTimeEpochSeconds = tokenStore.getPremiumExpireTimeEpochSeconds()
         initialized = true
@@ -44,6 +47,7 @@ object AuthManager {
         refreshToken: String,
         expiresAtEpochSeconds: Long,
         userId: String,
+        displayName: String?,
         premiumInfo: String,
         premiumExpireTimeEpochSeconds: Long,
     ) {
@@ -53,6 +57,7 @@ object AuthManager {
                 refreshToken = refreshToken,
                 expiresAtEpochSeconds = expiresAtEpochSeconds,
                 userId = userId,
+                displayName = displayName,
                 premiumInfo = premiumInfo,
                 premiumExpireTimeEpochSeconds = premiumExpireTimeEpochSeconds,
             )
@@ -61,6 +66,7 @@ object AuthManager {
         inMemoryRefreshToken = refreshToken
         this.expiresAtEpochSeconds = expiresAtEpochSeconds
         inMemoryUserId = userId
+        inMemoryDisplayName = displayName
         inMemoryPremiumInfo = premiumInfo
         this.premiumExpireTimeEpochSeconds = premiumExpireTimeEpochSeconds
     }
@@ -71,6 +77,10 @@ object AuthManager {
 
     fun getUserId(): String? {
         return inMemoryUserId
+    }
+
+    fun getDisplayName(): String? {
+        return inMemoryDisplayName
     }
 
     fun getPremiumInfo(): String? {
@@ -97,6 +107,7 @@ object AuthManager {
         inMemoryRefreshToken = null
         expiresAtEpochSeconds = 0L
         inMemoryUserId = null
+        inMemoryDisplayName = null
         inMemoryPremiumInfo = null
         premiumExpireTimeEpochSeconds = 0L
     }

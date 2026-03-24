@@ -185,7 +185,7 @@ fun MainScreen(vm: MainViewModel) {
         Scaffold(
             snackbarHost = {},
             topBar = {
-                if (state.isSaving) {
+                if (state.isSaving || state.isRestoringSession) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -465,6 +465,7 @@ private fun keyFrom(raw: String): AppTextKey? = when (raw) {
     "msg_signed_in_success" -> AppTextKey.MsgSignedInSuccess
     "msg_no_records_to_save" -> AppTextKey.MsgNoRecordsToSave
     "msg_records_saved_successfully" -> AppTextKey.MsgRecordsSavedSuccessfully
+    "msg_restoring_session" -> AppTextKey.MsgRestoringSession
     "msg_session_expired_sign_in_again" -> AppTextKey.MsgSessionExpiredSignInAgain
     "error_server_unavailable" -> AppTextKey.ErrorServerUnavailable
     "error_request_failed" -> AppTextKey.ErrorRequestFailed

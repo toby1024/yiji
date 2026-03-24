@@ -30,6 +30,7 @@ class MainViewModel(
 
     private val _state = MutableStateFlow(
         MainUiState(
+            loggedInUserName = AuthManager.getDisplayName(),
             serverToken = AuthManager.getToken(),
             billingAccountId = AuthManager.getUserId(),
             premiumInfo = AuthManager.getPremiumInfo(),
@@ -45,6 +46,10 @@ class MainViewModel(
     private var pendingSaveRequest: RecordRequest? = null
 
     init {
+        viewModelScope.launch {
+            restoreSessionOnLaunch()
+        }
+
         viewModelScope.launch {
             while (true) {
                 val s = _state.value
@@ -79,6 +84,8 @@ class MainViewModel(
                 premiumInfo = null,
                 premiumExpireTimeEpochSeconds = null,
                 currentSubscriptionSkuId = null,
+                loginInProgress = false,
+                isRestoringSession = false,
                 showProfileMenu = false,
             )
         }
@@ -150,6 +157,10 @@ class MainViewModel(
 
     fun onSaveClick() {
         val s = _state.value
+        if (s.isRestoringSession) {
+            emitMessage("msg_restoring_session", MessageTone.Info)
+            return
+        }
         if (s.startTimeMillis > 0L) {
             _state.update { it.copy(isPaused = true) }
         }
@@ -183,21 +194,18 @@ class MainViewModel(
                         refreshToken = session.refreshToken,
                         expiresAtEpochSeconds = session.expiresAtEpochSeconds,
                         userId = session.userId,
+                        displayName = result.displayName ?: result.email,
                         premiumInfo = session.premiumInfo,
                         premiumExpireTimeEpochSeconds = session.premiumExpireTimeEpochSeconds,
                     )
-                    _state.update {
-                        it.copy(
-                            serverToken = session.token,
-                            loggedInUserName = result.displayName ?: result.email,
-                            billingAccountId = session.userId,
-                            premiumInfo = session.premiumInfo,
-                            premiumExpireTimeEpochSeconds = session.premiumExpireTimeEpochSeconds.takeIf { v -> v > 0L },
-                            showProfileMenu = false,
-                            loginInProgress = false,
-                            messageTone = MessageTone.Success,
-                        )
-                    }
+                    applySessionToState(
+                        session = session,
+                        displayName = result.displayName ?: result.email,
+                        loginInProgress = false,
+                        showProfileMenu = false,
+                        isRestoringSession = false,
+                        messageTone = MessageTone.Success,
+                    )
                     _effects.send(MainUiEffect.ShowTopMessage("msg_signed_in_success", MessageTone.Success))
 
                     val pending = pendingSaveRequest
@@ -215,6 +223,54 @@ class MainViewModel(
 
     fun loadPremiumPlansAndShowDialog() {
         viewModelScope.launch { loadPremiumPlans() }
+    }
+
+    private suspend fun restoreSessionOnLaunch() {
+        val savedToken = AuthManager.getToken()
+        val refreshToken = AuthManager.getRefreshToken()
+        val displayName = AuthManager.getDisplayName()
+
+        if (savedToken.isNullOrBlank() && refreshToken.isNullOrBlank()) {
+            _state.update { it.copy(isRestoringSession = false) }
+            return
+        }
+
+        _state.update {
+            it.copy(
+                loggedInUserName = displayName,
+                serverToken = savedToken,
+                billingAccountId = AuthManager.getUserId(),
+                premiumInfo = AuthManager.getPremiumInfo(),
+                premiumExpireTimeEpochSeconds = AuthManager.getPremiumExpireTimeEpochSeconds().takeIf { value -> value > 0L },
+                isRestoringSession = true,
+            )
+        }
+
+        if (refreshToken.isNullOrBlank()) {
+            clearSessionState()
+            return
+        }
+
+        repository.refreshAccessToken(refreshToken)
+            .onSuccess { session ->
+                AuthManager.saveSession(
+                    token = session.token,
+                    refreshToken = session.refreshToken,
+                    expiresAtEpochSeconds = session.expiresAtEpochSeconds,
+                    userId = session.userId,
+                    displayName = displayName,
+                    premiumInfo = session.premiumInfo,
+                    premiumExpireTimeEpochSeconds = session.premiumExpireTimeEpochSeconds,
+                )
+                applySessionToState(
+                    session = session,
+                    displayName = displayName,
+                    isRestoringSession = false,
+                )
+            }
+            .onFailure {
+                clearSessionState()
+            }
     }
 
     fun onPremiumDismiss() {
@@ -378,19 +434,7 @@ class MainViewModel(
     }
 
     private suspend fun handleForbiddenAndRelogin(): Boolean {
-        AuthManager.clearToken()
-        _state.update {
-            it.copy(
-                serverToken = null,
-                loggedInUserName = null,
-                billingAccountId = null,
-                premiumInfo = null,
-                premiumExpireTimeEpochSeconds = null,
-                currentSubscriptionSkuId = null,
-                showProfileMenu = false,
-                messageTone = MessageTone.Info,
-            )
-        }
+        clearSessionState(messageTone = MessageTone.Info)
         _effects.send(MainUiEffect.ShowTopMessage("msg_session_expired_sign_in_again", MessageTone.Info))
         requestGoogleSignIn()
         return false
@@ -417,6 +461,47 @@ class MainViewModel(
     private fun emitMessage(key: String, tone: MessageTone) {
         _state.update { it.copy(messageTone = tone) }
         viewModelScope.launch { _effects.send(MainUiEffect.ShowTopMessage(key, tone)) }
+    }
+
+    private fun applySessionToState(
+        session: com.bluearcyiji.network.AuthSession,
+        displayName: String?,
+        loginInProgress: Boolean = false,
+        showProfileMenu: Boolean = false,
+        isRestoringSession: Boolean = false,
+        messageTone: MessageTone = _state.value.messageTone,
+    ) {
+        _state.update {
+            it.copy(
+                serverToken = session.token,
+                loggedInUserName = displayName,
+                billingAccountId = session.userId,
+                premiumInfo = session.premiumInfo,
+                premiumExpireTimeEpochSeconds = session.premiumExpireTimeEpochSeconds.takeIf { value -> value > 0L },
+                showProfileMenu = showProfileMenu,
+                loginInProgress = loginInProgress,
+                isRestoringSession = isRestoringSession,
+                messageTone = messageTone,
+            )
+        }
+    }
+
+    private fun clearSessionState(messageTone: MessageTone = _state.value.messageTone) {
+        AuthManager.clearToken()
+        _state.update {
+            it.copy(
+                serverToken = null,
+                loggedInUserName = null,
+                billingAccountId = null,
+                premiumInfo = null,
+                premiumExpireTimeEpochSeconds = null,
+                currentSubscriptionSkuId = null,
+                showProfileMenu = false,
+                loginInProgress = false,
+                isRestoringSession = false,
+                messageTone = messageTone,
+            )
+        }
     }
 
     private fun resolveCurrentSubscriptionSkuId(premiumInfo: String?, plans: List<com.bluearcyiji.network.SkuItem>): String? {

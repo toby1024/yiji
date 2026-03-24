@@ -29,6 +29,7 @@ class SigningInterceptor(
                                 refreshToken = session.refreshToken,
                                 expiresAtEpochSeconds = session.expiresAtEpochSeconds,
                                 userId = session.userId,
+                                displayName = AuthManager.getDisplayName(),
                                 premiumInfo = session.premiumInfo,
                                 premiumExpireTimeEpochSeconds = session.premiumExpireTimeEpochSeconds,
                             )
