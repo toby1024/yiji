@@ -1,5 +1,6 @@
 package com.bluearcyiji.network
 
+import com.bluearcyiji.BuildConfig
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -9,24 +10,10 @@ import java.util.concurrent.TimeUnit
 object ApiClient {
 
     private object AppConfig {
-        private val buildConfigClass = runCatching { Class.forName("com.bluearcyiji.BuildConfig") }.getOrNull()
-
-        val debug: Boolean = getBoolean("DEBUG", false)
-        val apiBaseUrl: String = getString("API_BASE_URL", "https://example.com/")
-        val apiKey: String = getString("API_KEY", "demo-key")
-        val apiSecret: String = getString("API_SECRET", "demo-secret")
-
-        private fun getBoolean(name: String, fallback: Boolean): Boolean {
-            return runCatching {
-                buildConfigClass?.getField(name)?.get(null) as? Boolean
-            }.getOrNull() ?: fallback
-        }
-
-        private fun getString(name: String, fallback: String): String {
-            return runCatching {
-                buildConfigClass?.getField(name)?.get(null) as? String
-            }.getOrNull() ?: fallback
-        }
+        val debug: Boolean = BuildConfig.DEBUG
+        val apiBaseUrl: String = BuildConfig.API_BASE_URL
+        val apiKey: String = BuildConfig.API_KEY
+        val apiSecret: String = BuildConfig.API_SECRET
     }
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {

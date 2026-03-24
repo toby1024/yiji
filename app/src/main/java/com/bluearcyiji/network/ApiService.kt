@@ -1,5 +1,6 @@
 package com.bluearcyiji.network
 
+import androidx.annotation.Keep
 import okhttp3.ResponseBody
 import com.google.gson.annotations.SerializedName
 import retrofit2.Response
@@ -7,21 +8,28 @@ import retrofit2.http.GET
 import retrofit2.http.Body
 import retrofit2.http.POST
 
+@Keep
 data class UserLoginRequest(
+    @SerializedName("idToken")
     val idToken: String,
+    @SerializedName("email")
     val email: String,
 )
 
+@Keep
 data class RefreshTokenRequest(
+    @SerializedName("refreshToken")
     val refreshToken: String,
 )
 
+@Keep
 data class BaseResponse<T>(
     val code: String?,
     val message: String?,
     val data: T?,
 )
 
+@Keep
 data class UserLoginData(
     val userId: String,
     val token: String,
@@ -29,6 +37,7 @@ data class UserLoginData(
     val expiresIn: Long,
 )
 
+@Keep
 data class SkuItem(
     val skuId: String,
     val skuName: String,
@@ -37,16 +46,19 @@ data class SkuItem(
     val isPopular: Boolean,
 )
 
+@Keep
 data class SkuListPayload(
     @SerializedName("one_time")
     val oneTime: List<SkuItem>,
     val subscription: List<SkuItem>,
 )
 
+@Keep
 data class SkuListResponse(
     val skuList: SkuListPayload,
 )
 
+@Keep
 data class RecordRequest(
     val avgTime: Float,
     val maxTime: Float,
@@ -56,6 +68,7 @@ data class RecordRequest(
     val details: List<RecordDetail>,
 )
 
+@Keep
 data class RecordDetail(
     val sequence: Int,
     val clickTime: String,
@@ -78,4 +91,3 @@ interface ApiService {
     @POST("record/save")
     suspend fun saveRecords(@Body request: RecordRequest): Response<BaseResponse<Any>>
 }
-

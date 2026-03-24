@@ -19,3 +19,21 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Keep generic type info and runtime annotations used by Gson.
+-keepattributes Signature
+-keepattributes *Annotation*
+
+# Keep Gson adapters/factories discovered via reflection.
+-keep class * extends com.google.gson.TypeAdapter { *; }
+-keep class * implements com.google.gson.TypeAdapterFactory { *; }
+-keep class * implements com.google.gson.JsonSerializer { *; }
+-keep class * implements com.google.gson.JsonDeserializer { *; }
+
+# Keep fields annotated with @SerializedName so mapping stays stable after obfuscation.
+-keepclassmembers,allowobfuscation class * {
+    @com.google.gson.annotations.SerializedName <fields>;
+}
+
+# Keep app network models used by Retrofit + Gson reflection.
+-keep class com.bluearcyiji.network.** { *; }

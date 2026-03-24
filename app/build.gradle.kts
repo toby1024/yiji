@@ -7,14 +7,78 @@ plugins {
 }
 
 val localProperties = Properties().apply {
+    
     val localFile = rootProject.file("local.properties")
     if (localFile.exists()) {
         localFile.inputStream().use(::load)
     }
 }
 
-fun readConfig(key: String, fallback: String): String {
-    return localProperties.getProperty(key) ?: System.getenv(key) ?: fallback
+val requestedTasks = gradle.startParameter.taskNames.joinToString(" ").lowercase()
+val isReleaseBuildRequested = requestedTasks.contains("release")
+
+fun readConfig(key: String): String? {
+    val fromLocal = localProperties.getProperty(key)?.trim().orEmpty()
+    if (fromLocal.isNotEmpty()) return fromLocal
+
+    val fromGradleProperty = providers.gradleProperty(key).orNull?.trim().orEmpty()
+    if (fromGradleProperty.isNotEmpty()) return fromGradleProperty
+
+    val fromEnv = System.getenv(key)?.trim().orEmpty()
+    if (fromEnv.isNotEmpty()) return fromEnv
+
+    return null
+}
+
+fun readConfigWithFallback(key: String, fallback: String): String {
+    return readConfig(key) ?: fallback
+}
+
+fun requireReleaseConfig(key: String): String {
+    return readConfig(key) ?: error(
+        "Missing required config '$key' for release build. " +
+            "Provide it via local.properties, gradle.properties, or environment variable."
+    )
+}
+
+fun maskSensitive(value: String): String {
+    if (value.isBlank()) return "<empty>"
+    return when {
+        value.length <= 8 -> "****"
+        else -> value.take(4) + "****" + value.takeLast(4)
+    }
+}
+
+val apiBaseUrl = if (isReleaseBuildRequested) {
+    requireReleaseConfig("API_BASE_URL")
+} else {
+    readConfigWithFallback("API_BASE_URL", "https://example.com/")
+}
+val apiKey = if (isReleaseBuildRequested) {
+    requireReleaseConfig("API_KEY")
+} else {
+    readConfigWithFallback("API_KEY", "demo-key")
+}
+val apiSecret = if (isReleaseBuildRequested) {
+    requireReleaseConfig("API_SECRET")
+} else {
+    readConfigWithFallback("API_SECRET", "demo-secret")
+}
+val googleWebClientId = if (isReleaseBuildRequested) {
+    requireReleaseConfig("GOOGLE_WEB_CLIENT_ID")
+} else {
+    readConfigWithFallback("GOOGLE_WEB_CLIENT_ID", "")
+}
+
+gradle.taskGraph.whenReady {
+    val hasAppBuildTask = allTasks.any { it.path.startsWith(":app:") }
+    if (!hasAppBuildTask) return@whenReady
+
+    logger.lifecycle("[BuildConfig] isReleaseBuildRequested=$isReleaseBuildRequested")
+    logger.lifecycle("[BuildConfig] API_BASE_URL=$apiBaseUrl")
+    logger.lifecycle("[BuildConfig] API_KEY=${maskSensitive(apiKey)}")
+    logger.lifecycle("[BuildConfig] API_SECRET=${maskSensitive(apiSecret)}")
+    logger.lifecycle("[BuildConfig] GOOGLE_WEB_CLIENT_ID=${maskSensitive(googleWebClientId)}")
 }
 
 android {
@@ -25,13 +89,13 @@ android {
         applicationId = "com.bluearcyiji"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1
+        versionCode = 9
         versionName = "1.0"
 
-        buildConfigField("String", "API_BASE_URL", "\"${readConfig("API_BASE_URL", "https://example.com/")}\"")
-        buildConfigField("String", "API_KEY", "\"${readConfig("API_KEY", "demo-key") }\"")
-        buildConfigField("String", "API_SECRET", "\"${readConfig("API_SECRET", "demo-secret") }\"")
-        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"${readConfig("GOOGLE_WEB_CLIENT_ID", "") }\"")
+        buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
+        buildConfigField("String", "API_KEY", "\"$apiKey\"")
+        buildConfigField("String", "API_SECRET", "\"$apiSecret\"")
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -41,8 +105,9 @@ android {
             isMinifyEnabled = false
         }
         release {
-            isMinifyEnabled = true
-            isShrinkResources = true
+            isDebuggable = true
+            isMinifyEnabled = false
+            isShrinkResources = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

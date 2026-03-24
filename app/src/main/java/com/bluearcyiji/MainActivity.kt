@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -122,11 +123,7 @@ fun MainScreen(vm: MainViewModel) {
     }
 
     suspend fun startLoginFlow() {
-        val webClientId: String = runCatching {
-            Class.forName("com.bluearcyiji.BuildConfig")
-                .getField("GOOGLE_WEB_CLIENT_ID")
-                .get(null) as? String
-        }.getOrNull() ?: ""
+        val webClientId = BuildConfig.GOOGLE_WEB_CLIENT_ID.trim()
 
         if (webClientId.isBlank()) {
             vm.onGoogleSignInFailed(t(AppTextKey.MsgSignInUnavailable))
@@ -208,6 +205,8 @@ fun MainScreen(vm: MainViewModel) {
         }
     }
 
+    val appVersionLabel = "v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})"
+
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             snackbarHost = {},
@@ -280,6 +279,15 @@ fun MainScreen(vm: MainViewModel) {
                     onPauseClick = {
                         vm.onPauseToggle()
                     },
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+                androidx.compose.material3.Text(
+                    text = appVersionLabel,
+                    fontSize = 12.sp,
+                    color = Color.Gray,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
         }

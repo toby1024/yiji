@@ -2,6 +2,7 @@ package com.bluearcyiji.billing
 
 import android.app.Activity
 import android.content.Context
+import android.util.Log
 import com.android.billingclient.api.AcknowledgePurchaseParams
 import com.android.billingclient.api.BillingClient
 import com.android.billingclient.api.BillingClientStateListener
@@ -19,6 +20,9 @@ import kotlinx.coroutines.flow.receiveAsFlow
 class BillingManager(
     context: Context,
 ) : PurchasesUpdatedListener {
+    companion object {
+        private const val TAG = "BillingManager"
+    }
 
     private val eventsChannel = Channel<BillingEvent>(capacity = Channel.BUFFERED)
     val events = eventsChannel.receiveAsFlow()
@@ -36,13 +40,40 @@ class BillingManager(
 
     private val productDetailsCache = LinkedHashMap<String, ProductDetails>()
 
+    private fun billingMessage(prefix: String, result: BillingResult): String {
+        val detail = when (result.responseCode) {
+            BillingClient.BillingResponseCode.BILLING_UNAVAILABLE ->
+                "Billing Unavailable: device/account/store does not support Google Play Billing"
+            BillingClient.BillingResponseCode.SERVICE_UNAVAILABLE ->
+                "Service Unavailable: Google Play service is temporarily unavailable"
+            BillingClient.BillingResponseCode.SERVICE_DISCONNECTED ->
+                "Service Disconnected: billing service connection dropped"
+            BillingClient.BillingResponseCode.ITEM_UNAVAILABLE ->
+                "Item Unavailable: product is not available for this app/account/region"
+            BillingClient.BillingResponseCode.DEVELOPER_ERROR ->
+                "Developer Error: appId/signature/product type configuration mismatch"
+            else -> result.debugMessage
+        }
+        return "$prefix (code=${result.responseCode}): $detail"
+    }
+
     fun connect() {
         if (billingClient.isReady) return
         billingClient.startConnection(
             object : BillingClientStateListener {
                 override fun onBillingSetupFinished(result: BillingResult) {
                     if (result.responseCode != BillingClient.BillingResponseCode.OK) {
-                        eventsChannel.trySend(BillingEvent.Error(result.debugMessage))
+                        eventsChannel.trySend(BillingEvent.Error(billingMessage("Billing setup failed", result)))
+                        return
+                    }
+
+                    val featureResult = billingClient.isFeatureSupported(BillingClient.FeatureType.SUBSCRIPTIONS)
+                    if (featureResult.responseCode != BillingClient.BillingResponseCode.OK) {
+                        eventsChannel.trySend(
+                            BillingEvent.Error(
+                                billingMessage("Subscriptions not supported on this device/account", featureResult)
+                            )
+                        )
                     }
                 }
 
@@ -61,17 +92,25 @@ class BillingManager(
     fun launchSubscriptionPurchase(activity: Activity, productId: String) {
         if (!billingClient.isReady) {
             eventsChannel.trySend(BillingEvent.Error("Billing not ready"))
+            Log.w(TAG, "launchSubscriptionPurchase aborted: billing client not ready")
             return
         }
         querySubscriptionProductDetails(productId) { details ->
             if (details == null) {
                 eventsChannel.trySend(BillingEvent.Error("Product not found: $productId"))
+                Log.e(TAG, "Product details not found for productId=$productId")
                 return@querySubscriptionProductDetails
             }
             val offerToken = details.subscriptionOfferDetails
                 ?.firstOrNull()
                 ?.offerToken
                 .orEmpty()
+            if (offerToken.isBlank()) {
+                Log.w(
+                    TAG,
+                    "No offer token for productId=$productId, subscriptionOfferDetails=${details.subscriptionOfferDetails}"
+                )
+            }
 
             val productParams = BillingFlowParams.ProductDetailsParams.newBuilder()
                 .setProductDetails(details)
@@ -89,6 +128,10 @@ class BillingManager(
             val result = billingClient.launchBillingFlow(activity, flowParams)
             if (result.responseCode != BillingClient.BillingResponseCode.OK) {
                 eventsChannel.trySend(BillingEvent.Error(result.debugMessage))
+                Log.e(
+                    TAG,
+                    "launchBillingFlow failed: code=${result.responseCode}, message=${result.debugMessage}"
+                )
             }
         }
     }
@@ -99,6 +142,15 @@ class BillingManager(
     ) {
         productDetailsCache[productId]?.let {
             onResult(it)
+            return
+        }
+
+        val featureResult = billingClient.isFeatureSupported(BillingClient.FeatureType.SUBSCRIPTIONS)
+        if (featureResult.responseCode != BillingClient.BillingResponseCode.OK) {
+            val msg = billingMessage("Cannot query subscription product", featureResult)
+            eventsChannel.trySend(BillingEvent.Error(msg))
+            Log.e(TAG, "$msg, productId=$productId")
+            onResult(null)
             return
         }
 
@@ -115,11 +167,21 @@ class BillingManager(
             params,
             ProductDetailsResponseListener { result, productDetailsList ->
                 if (result.responseCode != BillingClient.BillingResponseCode.OK) {
-                    eventsChannel.trySend(BillingEvent.Error(result.debugMessage))
+                    val msg = billingMessage("queryProductDetailsAsync failed", result)
+                    eventsChannel.trySend(BillingEvent.Error(msg))
+                    Log.e(
+                        TAG,
+                        "$msg for productId=$productId"
+                    )
                     onResult(null)
                     return@ProductDetailsResponseListener
                 }
-                val details = if (productDetailsList.productDetailsList.isNotEmpty()) productDetailsList.productDetailsList[0] else null
+                val fetchedList = productDetailsList.productDetailsList
+                Log.i(
+                    TAG,
+                    "queryProductDetailsAsync success for productId=$productId, fetched=${fetchedList.map { it.productId }}, unfetched=${productDetailsList.unfetchedProductList}"
+                )
+                val details = fetchedList.firstOrNull()
                 if (details != null) {
                     productDetailsCache[productId] = details
                 }
