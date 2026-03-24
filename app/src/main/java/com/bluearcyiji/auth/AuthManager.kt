@@ -10,6 +10,12 @@ object AuthManager {
     private var inMemoryRefreshToken: String? = null
     @Volatile
     private var expiresAtEpochSeconds: Long = 0L
+    @Volatile
+    private var inMemoryUserId: String? = null
+    @Volatile
+    private var inMemoryPremiumInfo: String? = null
+    @Volatile
+    private var premiumExpireTimeEpochSeconds: Long = 0L
 
     @Volatile
     private var initialized = false
@@ -23,6 +29,9 @@ object AuthManager {
         inMemoryToken = tokenStore.getToken()
         inMemoryRefreshToken = tokenStore.getRefreshToken()
         expiresAtEpochSeconds = tokenStore.getExpiresAtEpochSeconds()
+        inMemoryUserId = tokenStore.getUserId()
+        inMemoryPremiumInfo = tokenStore.getPremiumInfo()
+        premiumExpireTimeEpochSeconds = tokenStore.getPremiumExpireTimeEpochSeconds()
         initialized = true
     }
 
@@ -30,17 +39,46 @@ object AuthManager {
         return inMemoryToken
     }
 
-    fun saveSession(token: String, refreshToken: String, expiresAtEpochSeconds: Long) {
+    fun saveSession(
+        token: String,
+        refreshToken: String,
+        expiresAtEpochSeconds: Long,
+        userId: String,
+        premiumInfo: String,
+        premiumExpireTimeEpochSeconds: Long,
+    ) {
         if (::tokenStore.isInitialized) {
-            tokenStore.saveSession(token, refreshToken, expiresAtEpochSeconds)
+            tokenStore.saveSession(
+                token = token,
+                refreshToken = refreshToken,
+                expiresAtEpochSeconds = expiresAtEpochSeconds,
+                userId = userId,
+                premiumInfo = premiumInfo,
+                premiumExpireTimeEpochSeconds = premiumExpireTimeEpochSeconds,
+            )
         }
         inMemoryToken = token
         inMemoryRefreshToken = refreshToken
         this.expiresAtEpochSeconds = expiresAtEpochSeconds
+        inMemoryUserId = userId
+        inMemoryPremiumInfo = premiumInfo
+        this.premiumExpireTimeEpochSeconds = premiumExpireTimeEpochSeconds
     }
 
     fun getRefreshToken(): String? {
         return inMemoryRefreshToken
+    }
+
+    fun getUserId(): String? {
+        return inMemoryUserId
+    }
+
+    fun getPremiumInfo(): String? {
+        return inMemoryPremiumInfo
+    }
+
+    fun getPremiumExpireTimeEpochSeconds(): Long {
+        return premiumExpireTimeEpochSeconds
     }
 
     fun shouldRefreshToken(bufferSeconds: Long = 60L): Boolean {
@@ -58,6 +96,9 @@ object AuthManager {
         inMemoryToken = null
         inMemoryRefreshToken = null
         expiresAtEpochSeconds = 0L
+        inMemoryUserId = null
+        inMemoryPremiumInfo = null
+        premiumExpireTimeEpochSeconds = 0L
     }
 }
 

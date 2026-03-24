@@ -10,6 +10,8 @@ data class AuthSession(
     val token: String,
     val refreshToken: String,
     val expiresAtEpochSeconds: Long,
+    val premiumInfo: String,
+    val premiumExpireTimeEpochSeconds: Long,
 )
 
 class ServerApiRepository(
@@ -31,6 +33,12 @@ class ServerApiRepository(
     private fun throwHttpError(code: Int, message: String, errorBody: String) {
         val detail = "HTTP $code $message ${errorBody}".trim()
         throw ApiHttpException(statusCode = code, message = detail)
+    }
+
+    private fun normalizeEpochSeconds(raw: Long): Long {
+        if (raw <= 0L) return 0L
+        // Backward-compatible normalization: accepts both seconds and millis.
+        return if (raw > 9_999_999_999L) raw / 1000L else raw
     }
 
     suspend fun getSkuList(): Result<SkuListResponse> {
@@ -60,6 +68,8 @@ class ServerApiRepository(
             token = token,
             refreshToken = refreshToken,
             expiresAtEpochSeconds = nowEpochSeconds + expiresIn,
+            premiumInfo = premiumInfo,
+            premiumExpireTimeEpochSeconds = normalizeEpochSeconds(premiumExpireTime),
         )
     }
 

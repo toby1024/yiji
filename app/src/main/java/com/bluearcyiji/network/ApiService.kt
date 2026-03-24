@@ -35,6 +35,8 @@ data class UserLoginData(
     val token: String,
     val refreshToken: String,
     val expiresIn: Long,
+    val premiumInfo: String,
+    val premiumExpireTime: Long,
 )
 
 @Keep

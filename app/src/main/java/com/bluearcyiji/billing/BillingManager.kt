@@ -13,6 +13,7 @@ import com.android.billingclient.api.ProductDetails
 import com.android.billingclient.api.ProductDetailsResponseListener
 import com.android.billingclient.api.Purchase
 import com.android.billingclient.api.PurchasesUpdatedListener
+import com.android.billingclient.api.QueryPurchasesParams
 import com.android.billingclient.api.QueryProductDetailsParams
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -94,6 +95,8 @@ class BillingManager(
         activity: Activity,
         productId: String,
         obfuscatedExternalAccountId: String? = null,
+        previousProductId: String? = null,
+        changeMode: SubscriptionChangeMode? = null,
     ) {
         if (!billingClient.isReady) {
             eventsChannel.trySend(BillingEvent.Error("Billing not ready"))
@@ -142,16 +145,60 @@ class BillingManager(
                 flowParamsBuilder.setObfuscatedAccountId(normalizedObfuscatedAccountId)
             }
 
-            val flowParams = flowParamsBuilder.build()
+            queryActiveSubscription(previousProductId) { activePurchase ->
+                if (activePurchase != null && previousProductId != productId) {
+                    val replacementMode = when (changeMode) {
+                        SubscriptionChangeMode.UPGRADE ->
+                            BillingFlowParams.SubscriptionUpdateParams.ReplacementMode.WITH_TIME_PRORATION
 
-            val result = billingClient.launchBillingFlow(activity, flowParams)
-            if (result.responseCode != BillingClient.BillingResponseCode.OK) {
-                eventsChannel.trySend(BillingEvent.Error(result.debugMessage))
-                Log.e(
-                    TAG,
-                    "launchBillingFlow failed: code=${result.responseCode}, message=${result.debugMessage}"
-                )
+                        SubscriptionChangeMode.DOWNGRADE ->
+                            BillingFlowParams.SubscriptionUpdateParams.ReplacementMode.DEFERRED
+
+                        null ->
+                            BillingFlowParams.SubscriptionUpdateParams.ReplacementMode.WITH_TIME_PRORATION
+                    }
+                    val updateParams = BillingFlowParams.SubscriptionUpdateParams.newBuilder()
+                        .setOldPurchaseToken(activePurchase.purchaseToken)
+                        .setSubscriptionReplacementMode(replacementMode)
+                        .build()
+                    flowParamsBuilder.setSubscriptionUpdateParams(updateParams)
+                }
+
+                val flowParams = flowParamsBuilder.build()
+                val result = billingClient.launchBillingFlow(activity, flowParams)
+                if (result.responseCode != BillingClient.BillingResponseCode.OK) {
+                    eventsChannel.trySend(BillingEvent.Error(result.debugMessage))
+                    Log.e(
+                        TAG,
+                        "launchBillingFlow failed: code=${result.responseCode}, message=${result.debugMessage}"
+                    )
+                }
             }
+        }
+    }
+
+    private fun queryActiveSubscription(previousProductId: String?, onResult: (Purchase?) -> Unit) {
+        if (previousProductId.isNullOrBlank()) {
+            onResult(null)
+            return
+        }
+
+        val params = QueryPurchasesParams.newBuilder()
+            .setProductType(BillingClient.ProductType.SUBS)
+            .build()
+
+        billingClient.queryPurchasesAsync(params) { result, purchases ->
+            if (result.responseCode != BillingClient.BillingResponseCode.OK) {
+                val msg = billingMessage("queryPurchasesAsync failed", result)
+                eventsChannel.trySend(BillingEvent.Error(msg))
+                Log.e(TAG, "$msg, previousProductId=$previousProductId")
+                onResult(null)
+                return@queryPurchasesAsync
+            }
+
+            val purchased = purchases.orEmpty().filter { it.purchaseState == Purchase.PurchaseState.PURCHASED }
+            val matched = purchased.firstOrNull { it.products.contains(previousProductId) } ?: purchased.firstOrNull()
+            onResult(matched)
         }
     }
 
@@ -253,3 +300,9 @@ sealed interface BillingEvent {
     data object UserCancelled : BillingEvent
     data class Error(val message: String) : BillingEvent
 }
+
+enum class SubscriptionChangeMode {
+    UPGRADE,
+    DOWNGRADE,
+}
+

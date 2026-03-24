@@ -28,6 +28,9 @@ class SigningInterceptor(
                                 token = session.token,
                                 refreshToken = session.refreshToken,
                                 expiresAtEpochSeconds = session.expiresAtEpochSeconds,
+                                userId = session.userId,
+                                premiumInfo = session.premiumInfo,
+                                premiumExpireTimeEpochSeconds = session.premiumExpireTimeEpochSeconds,
                             )
                         }
                 }

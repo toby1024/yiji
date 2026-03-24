@@ -28,7 +28,14 @@ class MainViewModel(
     private val nowMillis: () -> Long = { System.currentTimeMillis() },
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(MainUiState(serverToken = AuthManager.getToken()))
+    private val _state = MutableStateFlow(
+        MainUiState(
+            serverToken = AuthManager.getToken(),
+            billingAccountId = AuthManager.getUserId(),
+            premiumInfo = AuthManager.getPremiumInfo(),
+            premiumExpireTimeEpochSeconds = AuthManager.getPremiumExpireTimeEpochSeconds().takeIf { it > 0L },
+        )
+    )
     val state: StateFlow<MainUiState> = _state.asStateFlow()
 
     private val _effects = Channel<MainUiEffect>(capacity = Channel.BUFFERED)
@@ -69,6 +76,9 @@ class MainViewModel(
                 serverToken = null,
                 loggedInUserName = null,
                 billingAccountId = null,
+                premiumInfo = null,
+                premiumExpireTimeEpochSeconds = null,
+                currentSubscriptionSkuId = null,
                 showProfileMenu = false,
             )
         }
@@ -172,12 +182,17 @@ class MainViewModel(
                         token = session.token,
                         refreshToken = session.refreshToken,
                         expiresAtEpochSeconds = session.expiresAtEpochSeconds,
+                        userId = session.userId,
+                        premiumInfo = session.premiumInfo,
+                        premiumExpireTimeEpochSeconds = session.premiumExpireTimeEpochSeconds,
                     )
                     _state.update {
                         it.copy(
                             serverToken = session.token,
                             loggedInUserName = result.displayName ?: result.email,
                             billingAccountId = session.userId,
+                            premiumInfo = session.premiumInfo,
+                            premiumExpireTimeEpochSeconds = session.premiumExpireTimeEpochSeconds.takeIf { v -> v > 0L },
                             showProfileMenu = false,
                             loginInProgress = false,
                             messageTone = MessageTone.Success,
@@ -210,6 +225,19 @@ class MainViewModel(
         _state.update { it.copy(selectedPremiumSkuId = skuId) }
     }
 
+    fun onSubscriptionPurchaseSucceeded(purchasedProductIds: List<String>) {
+        if (purchasedProductIds.isEmpty()) return
+        val purchased = purchasedProductIds.firstOrNull()
+        _state.update { current ->
+            val matchedSku = current.premiumPlans.firstOrNull { it.skuId in purchasedProductIds }
+            val normalizedInfo = matchedSku?.skuName ?: purchased ?: current.premiumInfo
+            current.copy(
+                currentSubscriptionSkuId = matchedSku?.skuId ?: purchased ?: current.currentSubscriptionSkuId,
+                premiumInfo = normalizedInfo,
+            )
+        }
+    }
+
     private suspend fun loadPremiumPlans() {
         fun premiumRank(planName: String, skuId: String): Int {
             val key = "$skuId $planName".lowercase(Locale.US)
@@ -233,15 +261,19 @@ class MainViewModel(
         repository.getSkuList()
             .onSuccess { skuResponse ->
                 val ordered = skuResponse.skuList.subscription.sortedBy { premiumRank(it.skuName, it.skuId) }
-                val selected = ordered.firstOrNull {
-                    val key = "${it.skuId} ${it.skuName}".lowercase(Locale.US)
-                    "monthly" in key
-                }?.skuId ?: ordered.firstOrNull()?.skuId
+                val currentSkuId = resolveCurrentSubscriptionSkuId(_state.value.premiumInfo, ordered)
+                val selected = currentSkuId
+                    ?: ordered.firstOrNull {
+                        val key = "${it.skuId} ${it.skuName}".lowercase(Locale.US)
+                        "monthly" in key
+                    }?.skuId
+                    ?: ordered.firstOrNull()?.skuId
 
                 _state.update {
                     it.copy(
                         premiumPlans = ordered,
                         selectedPremiumSkuId = selected,
+                        currentSubscriptionSkuId = currentSkuId,
                     )
                 }
             }
@@ -352,6 +384,9 @@ class MainViewModel(
                 serverToken = null,
                 loggedInUserName = null,
                 billingAccountId = null,
+                premiumInfo = null,
+                premiumExpireTimeEpochSeconds = null,
+                currentSubscriptionSkuId = null,
                 showProfileMenu = false,
                 messageTone = MessageTone.Info,
             )
@@ -382,6 +417,32 @@ class MainViewModel(
     private fun emitMessage(key: String, tone: MessageTone) {
         _state.update { it.copy(messageTone = tone) }
         viewModelScope.launch { _effects.send(MainUiEffect.ShowTopMessage(key, tone)) }
+    }
+
+    private fun resolveCurrentSubscriptionSkuId(premiumInfo: String?, plans: List<com.bluearcyiji.network.SkuItem>): String? {
+        val raw = premiumInfo?.trim().orEmpty()
+        if (raw.isBlank() || plans.isEmpty()) return null
+
+        plans.firstOrNull { it.skuId.equals(raw, ignoreCase = true) }?.let { return it.skuId }
+
+        val normalizedRaw = raw.lowercase(Locale.US)
+        val tier = when {
+            "weekly" in normalizedRaw -> "weekly"
+            "monthly" in normalizedRaw -> "monthly"
+            "yearly" in normalizedRaw || "annual" in normalizedRaw -> "yearly"
+            else -> ""
+        }
+        if (tier.isNotBlank()) {
+            plans.firstOrNull {
+                val key = "${it.skuId} ${it.skuName}".lowercase(Locale.US)
+                tier in key || (tier == "yearly" && "annual" in key)
+            }?.let { return it.skuId }
+        }
+
+        return plans.firstOrNull {
+            val key = "${it.skuId} ${it.skuName}".lowercase(Locale.US)
+            normalizedRaw in key || key in normalizedRaw
+        }?.skuId
     }
 }
 

@@ -124,9 +124,42 @@ fun CounterSummary(
 
     androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(16.dp))
 
-    com.bluearcyiji.StatRow(avgLabel, avgValue, maxLabel, maxValue)
+    StatRow(avgLabel, avgValue, maxLabel, maxValue)
     androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(8.dp))
-    com.bluearcyiji.StatRow(minLabel, minValue, durationLabel, durationValue)
+    StatRow(minLabel, minValue, durationLabel, durationValue)
+}
+
+@Composable
+fun StatRow(t1: String, v1: Double, t2: String, v2: Double) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+    ) {
+        StatCard(t1, context.formatSecondsLabel(v1))
+        StatCard(t2, context.formatSecondsLabel(v2))
+    }
+}
+
+@Composable
+fun StatCard(title: String, value: String) {
+    Card(
+        modifier = Modifier
+            .width(140.dp)
+            .height(70.dp),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(6.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(title, fontSize = 12.sp, color = Color.Gray)
+            androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(4.dp))
+            Text(value, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        }
+    }
 }
 
 @Composable
