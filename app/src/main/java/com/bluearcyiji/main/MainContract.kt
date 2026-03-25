@@ -17,6 +17,7 @@ data class MainUiState(
     val messageTone: MessageTone = MessageTone.Info,
     val isSaving: Boolean = false,
     val showPremiumDialog: Boolean = false,
+    val premiumDialogShowSubtitle: Boolean = false,
     val premiumLoading: Boolean = false,
     val premiumPlans: List<SkuItem> = emptyList(),
     val selectedPremiumSkuId: String? = null,

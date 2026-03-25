@@ -274,12 +274,14 @@ fun PremiumOverlayDialog(
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                 )
-                androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.Gray,
-                )
+                if (subtitle.isNotBlank()) {
+                    androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.Gray,
+                    )
+                }
                 androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(22.dp))
 
                 if (loading) {

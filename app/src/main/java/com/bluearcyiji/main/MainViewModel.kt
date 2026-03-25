@@ -222,13 +222,13 @@ class MainViewModel(
     }
 
     fun loadPremiumPlansAndShowDialog() {
-        viewModelScope.launch { loadPremiumPlans() }
+        viewModelScope.launch { loadPremiumPlans(showSubtitle = true) }
     }
 
     fun onSubscriptionBadgeClick() {
         viewModelScope.launch {
             refreshSubscriptionStatusFromServer()
-            loadPremiumPlans()
+            loadPremiumPlans(showSubtitle = false)
         }
     }
 
@@ -327,7 +327,7 @@ class MainViewModel(
         }
     }
 
-    private suspend fun loadPremiumPlans() {
+    private suspend fun loadPremiumPlans(showSubtitle: Boolean = false) {
         fun premiumRank(planName: String, skuId: String): Int {
             val key = "$skuId $planName".lowercase(Locale.US)
             return when {
@@ -341,6 +341,7 @@ class MainViewModel(
         _state.update {
             it.copy(
                 showPremiumDialog = true,
+                premiumDialogShowSubtitle = showSubtitle,
                 premiumLoading = true,
                 premiumPlans = emptyList(),
                 selectedPremiumSkuId = null,
@@ -416,7 +417,7 @@ class MainViewModel(
             }
 
             if (error != null && shouldShowPremium(error)) {
-                loadPremiumPlans()
+                loadPremiumPlans(showSubtitle = true)
                 return
             }
 

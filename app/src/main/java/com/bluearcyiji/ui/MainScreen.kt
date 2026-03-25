@@ -271,7 +271,7 @@ fun MainScreen(vm: MainViewModel) {
             plans = state.premiumPlans,
             selectedSkuId = state.selectedPremiumSkuId,
             title = t(AppTextKey.PremiumDialogTitle),
-            subtitle = t(AppTextKey.MsgPremiumRequired),
+            subtitle = if (state.premiumDialogShowSubtitle) t(AppTextKey.MsgPremiumRequired) else "",
             loadingText = t(AppTextKey.PremiumDialogLoading),
             emptyText = t(AppTextKey.PremiumDialogNoPlans),
             closeText = t(AppTextKey.PremiumDialogClose),
