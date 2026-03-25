@@ -230,6 +230,7 @@ fun PremiumOverlayDialog(
     loading: Boolean,
     plans: List<SkuItem>,
     selectedSkuId: String?,
+    currentSkuId: String?,
     title: String,
     subtitle: String,
     loadingText: String,
@@ -296,6 +297,7 @@ fun PremiumOverlayDialog(
                     PremiumSkuList(
                         skus = plans,
                         selectedSkuId = selectedSkuId,
+                        currentSkuId = currentSkuId,
                         onSkuSelected = onSkuSelected,
                         priceFormatter = priceFormatter,
                     )

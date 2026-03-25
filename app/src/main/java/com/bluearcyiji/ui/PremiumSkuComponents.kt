@@ -7,8 +7,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -22,7 +24,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -34,6 +39,65 @@ import com.bluearcyiji.network.SkuItem
 import com.bluearcyiji.ui.theme.YIJITheme
 import java.util.Locale
 
+// ── Flag shape drawn behind the text via drawBehind ──────────────────────────
+// direction: "right" = tail points right (left-anchored), "left" = tail points left (right-anchored)
+// cornerRadius: rounded corner radius for the "closed" end of the flag (bottom-right for "left" direction)
+private fun Modifier.flagBackground(color: Color, direction: String = "right", cornerRadius: Dp = 0.dp): Modifier = this.drawBehind {
+    val notch = size.height / 2f
+    val r = cornerRadius.toPx().coerceAtMost(size.height / 2f)
+    val path = Path().apply {
+        if (direction == "left") {
+            moveTo(size.width, 0f)
+            lineTo(notch, 0f)
+            lineTo(0f, notch)              // left-pointing notch → flag tail
+            lineTo(notch, size.height)
+            if (r > 0f) {
+                // bottom edge, stop before the rounded corner
+                lineTo(size.width - r, size.height)
+                // quarter-circle arc at bottom-right corner (90° → 0°, counterclockwise)
+                arcTo(
+                    rect = Rect(size.width - 2 * r, size.height - 2 * r, size.width, size.height),
+                    startAngleDegrees = 90f,
+                    sweepAngleDegrees = -90f,
+                    forceMoveTo = false,
+                )
+                // right edge up to top-right
+                lineTo(size.width, 0f)
+            } else {
+                lineTo(size.width, size.height)
+            }
+        } else {
+            moveTo(0f, 0f)
+            lineTo(size.width - notch, 0f)
+            lineTo(size.width, notch)      // right-pointing notch → flag tail
+            lineTo(size.width - notch, size.height)
+            lineTo(0f, size.height)
+        }
+        close()
+    }
+    drawPath(path, color = color)
+}
+
+@Composable
+private fun CurrentFlag(modifier: Modifier = Modifier, cornerRadius: Dp = 14.dp) {
+    Box(
+        modifier = modifier
+            .wrapContentWidth()
+            .height(20.dp)
+            .flagBackground(Color(0xFFE07B39), direction = "left", cornerRadius = cornerRadius)
+            .padding(start = 16.dp, end = 8.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = "CURRENT",
+            color = Color.White,
+            fontSize = 9.sp,
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 0.5.sp,
+        )
+    }
+}
+
 @Composable
 fun PremiumSkuCard(
     sku: SkuItem,
@@ -41,6 +105,7 @@ fun PremiumSkuCard(
     onClick: () -> Unit,
     priceText: String,
     modifier: Modifier = Modifier,
+    isCurrent: Boolean = false,
     showPopularBadge: Boolean = sku.isPopular,
     cornerRadius: Dp = 14.dp,
     borderWidth: Dp = 3.dp,
@@ -81,19 +146,27 @@ fun PremiumSkuCard(
             }
         }
 
-        if (showPopularBadge) {
-            val badgeBackgroundColor = if (selected) selectedBorderColor else unselectedBorderColor
-            val badgeTextColor = Color(0xFFFFFFFF)
+        // Current flag — bottom-right, tight against the card border (not overlapping)
+        if (isCurrent) {
+            CurrentFlag(
+                cornerRadius = cornerRadius,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .offset(x = -borderWidth, y = -borderWidth),
+            )
+        }
 
+        // Most-popular badge — only shown when not the current plan
+        if (showPopularBadge && !isCurrent) {
+            val badgeColor = if (selected) selectedBorderColor else unselectedBorderColor
             Text(
                 text = "MOST POPULAR",
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .offset(x = 0.dp, y = 0.dp)
-                    .background(badgeBackgroundColor, androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
+                    .background(badgeColor, androidx.compose.foundation.shape.RoundedCornerShape(0.dp, 14.dp, 0.dp, 14.dp ))
                     .padding(horizontal = 8.dp, vertical = 3.dp),
                 fontSize = 10.sp,
-                color = badgeTextColor,
+                color = Color.White,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
             )
@@ -105,6 +178,7 @@ fun PremiumSkuCard(
 fun PremiumSkuList(
     skus: List<SkuItem>,
     selectedSkuId: String?,
+    currentSkuId: String?,
     onSkuSelected: (SkuItem) -> Unit,
     priceFormatter: (Int) -> String,
     modifier: Modifier = Modifier,
@@ -117,6 +191,7 @@ fun PremiumSkuList(
             PremiumSkuCard(
                 sku = sku,
                 selected = sku.skuId == selectedSkuId,
+                isCurrent = sku.skuId == currentSkuId,
                 onClick = { onSkuSelected(sku) },
                 priceText = priceFormatter(sku.skuPrice),
                 modifier = Modifier.fillMaxWidth(),
@@ -170,10 +245,10 @@ private fun PremiumSkuListPreview() {
         PremiumSkuList(
             skus = previewSkus,
             selectedSkuId = previewSkus.firstOrNull()?.skuId,
+            currentSkuId = null,
             onSkuSelected = {},
             priceFormatter = { cents -> String.format(Locale.US, "¥%.2f", cents / 100.0) },
             modifier = Modifier.padding(12.dp),
         )
     }
 }
-
