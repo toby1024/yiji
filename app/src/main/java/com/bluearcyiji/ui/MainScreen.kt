@@ -299,7 +299,7 @@ fun MainScreen(vm: MainViewModel) {
                 bm.launchSubscriptionPurchase(
                     activity = activity,
                     productId = skuId,
-                    obfuscatedExternalAccountId = obfuscateExternalAccountId(state.billingAccountId),
+                    obfuscatedExternalAccountId = state.billingAccountId,
                     previousProductId = currentSkuId,
                     changeMode = resolveSubscriptionChangeMode(
                         currentSkuId = currentSkuId,
@@ -333,12 +333,6 @@ fun MainScreen(vm: MainViewModel) {
             topSpacing = 24.dp,
         )
     }
-}
-
-private fun obfuscateExternalAccountId(rawAccountId: String?): String? {
-    val normalized = rawAccountId?.trim()?.takeIf { it.isNotBlank() } ?: return null
-    val digest = MessageDigest.getInstance("SHA-256").digest(normalized.toByteArray(Charsets.UTF_8))
-    return digest.joinToString(separator = "") { "%02x".format(it) }
 }
 
 @Composable
