@@ -1,5 +1,9 @@
 package com.bluearcyiji.network
 
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.TimeZone
+
 class ApiHttpException(
     val statusCode: Int,
     override val message: String,
@@ -10,6 +14,11 @@ data class AuthSession(
     val token: String,
     val refreshToken: String,
     val expiresAtEpochSeconds: Long,
+    val premiumInfo: String,
+    val premiumExpireTimeEpochSeconds: Long,
+)
+
+data class UserPremiumStatus(
     val premiumInfo: String,
     val premiumExpireTimeEpochSeconds: Long,
 )
@@ -130,6 +139,43 @@ class ServerApiRepository(
                 error("Business error ${payload.code}: ${payload.message.orEmpty()}")
             }
             Unit
+        }
+    }
+
+    private fun parseDateTimeToEpochSeconds(raw: String?): Long {
+        val value = raw?.trim().orEmpty()
+        if (value.isBlank()) return 0L
+        value.toLongOrNull()?.let { return normalizeEpochSeconds(it) }
+        val userTimeParsers = listOf(
+            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") },
+            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") },
+        )
+        userTimeParsers.forEach { parser ->
+            runCatching { parser.parse(value) }
+                .getOrNull()
+                ?.let { date -> return date.time / 1000L }
+        }
+        return 0L
+    }
+
+    suspend fun fetchUserPremiumStatus(): Result<UserPremiumStatus> {
+        return runCatching {
+            val response = apiService.getUserInfo()
+            if (!response.isSuccessful) {
+                val errorBody = response.errorBody()?.string().orEmpty()
+                throwHttpError(response.code(), response.message(), errorBody)
+            }
+
+            val payload = response.body() ?: error("Empty response body")
+            if (payload.code != 200) {
+                error("Business error ${payload.code}: ${payload.message.orEmpty()}")
+            }
+
+            val userInfo = payload.data?.userInfo ?: error("Empty userInfo")
+            UserPremiumStatus(
+                premiumInfo = userInfo.premiumInfo.orEmpty(),
+                premiumExpireTimeEpochSeconds = parseDateTimeToEpochSeconds(userInfo.premiumExpireTime),
+            )
         }
     }
 }

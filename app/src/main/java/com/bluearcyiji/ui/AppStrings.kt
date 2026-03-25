@@ -39,6 +39,7 @@ enum class AppTextKey {
     PremiumDialogNoPlans,
     PremiumDialogClose,
     ActionLoadPlans,
+    ActionLoadUserInfo,
     SubscriptionStatusTitle,
     SubscriptionPlanLabel,
     SubscriptionExpireLabel,
@@ -146,6 +147,10 @@ private val appTextCatalog = mapOf(
     AppTextKey.ActionLoadPlans to AppTextEntry(
         "Load plans",
         "加载方案",
+    ),
+    AppTextKey.ActionLoadUserInfo to AppTextEntry(
+        "Load subscription",
+        "加载订阅信息",
     ),
     AppTextKey.SubscriptionStatusTitle to AppTextEntry(
         "Subscription",

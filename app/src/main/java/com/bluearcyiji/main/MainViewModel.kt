@@ -225,6 +225,36 @@ class MainViewModel(
         viewModelScope.launch { loadPremiumPlans() }
     }
 
+    fun onSubscriptionBadgeClick() {
+        viewModelScope.launch {
+            refreshSubscriptionStatusFromServer()
+            loadPremiumPlans()
+        }
+    }
+
+    private suspend fun refreshSubscriptionStatusFromServer() {
+        if (AuthManager.getToken().isNullOrBlank()) return
+
+        repository.fetchUserPremiumStatus()
+            .onSuccess { status ->
+                val normalizedPremiumInfo = status.premiumInfo.trim().ifBlank { "free" }
+                val expireSeconds = status.premiumExpireTimeEpochSeconds.takeIf { it > 0L }
+                AuthManager.updatePremiumStatus(
+                    premiumInfo = normalizedPremiumInfo,
+                    premiumExpireTimeEpochSeconds = status.premiumExpireTimeEpochSeconds,
+                )
+                _state.update {
+                    it.copy(
+                        premiumInfo = normalizedPremiumInfo,
+                        premiumExpireTimeEpochSeconds = expireSeconds,
+                    )
+                }
+            }
+            .onFailure { error ->
+                _effects.send(MainUiEffect.ShowTopMessage(mapError("action_load_user_info", error), MessageTone.Error))
+            }
+    }
+
     private suspend fun restoreSessionOnLaunch() {
         val savedToken = AuthManager.getToken()
         val refreshToken = AuthManager.getRefreshToken()
@@ -286,7 +316,10 @@ class MainViewModel(
         val purchased = purchasedProductIds.firstOrNull()
         _state.update { current ->
             val matchedSku = current.premiumPlans.firstOrNull { it.skuId in purchasedProductIds }
-            val normalizedInfo = matchedSku?.skuName ?: purchased ?: current.premiumInfo
+            val normalizedInfo = resolveSubscriptionTier(
+                planName = matchedSku?.skuName,
+                skuId = matchedSku?.skuId ?: purchased,
+            ) ?: current.premiumInfo
             current.copy(
                 currentSubscriptionSkuId = matchedSku?.skuId ?: purchased ?: current.currentSubscriptionSkuId,
                 premiumInfo = normalizedInfo,
@@ -528,6 +561,16 @@ class MainViewModel(
             val key = "${it.skuId} ${it.skuName}".lowercase(Locale.US)
             normalizedRaw in key || key in normalizedRaw
         }?.skuId
+    }
+
+    private fun resolveSubscriptionTier(planName: String?, skuId: String?): String? {
+        val key = "${skuId.orEmpty()} ${planName.orEmpty()}".lowercase(Locale.US)
+        return when {
+            "weekly" in key -> "weekly"
+            "monthly" in key -> "monthly"
+            "yearly" in key || "annual" in key -> "yearly"
+            else -> null
+        }
     }
 }
 

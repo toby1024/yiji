@@ -76,6 +76,37 @@ data class RecordDetail(
     val clickTime: String,
 )
 
+@Keep
+data class UserEntitlement(
+    val resourceType: String?,
+    val quantity: Int?,
+    val expiryTime: String?,
+    val status: Boolean?,
+)
+
+@Keep
+data class UserInfo(
+    val userId: String,
+    val userSecretId: String?,
+    val email: String?,
+    val premiumInfo: String?,
+    val premiumExpireTime: String?,
+    val vip: Boolean?,
+)
+
+@Keep
+data class UserInfoData(
+    val userEntitlement: UserEntitlement?,
+    val userInfo: UserInfo?,
+)
+
+@Keep
+data class UserInfoResponse(
+    val code: Int?,
+    val message: String?,
+    val data: UserInfoData?,
+)
+
 interface ApiService {
 
     @GET("health")
@@ -92,4 +123,7 @@ interface ApiService {
 
     @POST("record/save")
     suspend fun saveRecords(@Body request: RecordRequest): Response<BaseResponse<Any>>
+
+    @GET("user/info")
+    suspend fun getUserInfo(): Response<UserInfoResponse>
 }

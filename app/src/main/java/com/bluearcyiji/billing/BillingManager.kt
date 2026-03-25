@@ -149,13 +149,13 @@ class BillingManager(
                 if (activePurchase != null && previousProductId != productId) {
                     val replacementMode = when (changeMode) {
                         SubscriptionChangeMode.UPGRADE ->
-                            BillingFlowParams.SubscriptionUpdateParams.ReplacementMode.WITH_TIME_PRORATION
+                            BillingFlowParams.SubscriptionUpdateParams.ReplacementMode.CHARGE_PRORATED_PRICE
 
                         SubscriptionChangeMode.DOWNGRADE ->
                             BillingFlowParams.SubscriptionUpdateParams.ReplacementMode.DEFERRED
 
                         null ->
-                            BillingFlowParams.SubscriptionUpdateParams.ReplacementMode.WITH_TIME_PRORATION
+                            BillingFlowParams.SubscriptionUpdateParams.ReplacementMode.CHARGE_PRORATED_PRICE
                     }
                     val updateParams = BillingFlowParams.SubscriptionUpdateParams.newBuilder()
                         .setOldPurchaseToken(activePurchase.purchaseToken)

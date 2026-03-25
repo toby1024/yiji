@@ -50,7 +50,6 @@ import com.bluearcyiji.network.SkuItem
 import com.bluearcyiji.ui.theme.YIJITheme
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
-import java.security.MessageDigest
 import java.util.Locale
 
 @Preview(showBackground = true, showSystemUi = true)
@@ -319,7 +318,7 @@ fun MainScreen(vm: MainViewModel) {
                     currentSkuId = state.currentSubscriptionSkuId,
                     freeLabel = t(AppTextKey.SubscriptionFreePlan),
                 ),
-                onClick = vm::loadPremiumPlansAndShowDialog,
+                onClick = vm::onSubscriptionBadgeClick,
                 modifier = Modifier
                     .align(Alignment.TopStart)
                     .statusBarsPadding()
@@ -396,24 +395,24 @@ private fun resolvePlanLabel(
     currentSkuId: String?,
     freeLabel: String,
 ): String {
+    resolveTierLabel(premiumInfo)?.let { return it }
+
     val matched = currentSkuId?.let { skuId ->
         plans.firstOrNull { it.skuId == skuId }
     }
-    if (matched != null) {
-        return matched.skuName
-            .substringBefore("(")
-            .substringBefore("-")
-            .trim()
-            .ifBlank { matched.skuName }
-    }
+    val key = "${currentSkuId.orEmpty()} ${matched?.skuName.orEmpty()}"
+    return resolveTierLabel(key) ?: freeLabel
+}
 
-    return premiumInfo
-        ?.takeIf { it.isNotBlank() }
-        ?.substringBefore("(")
-        ?.substringBefore("-")
-        ?.trim()
-        ?.ifBlank { freeLabel }
-        ?: freeLabel
+private fun resolveTierLabel(raw: String?): String? {
+    val key = raw?.trim()?.lowercase(Locale.US).orEmpty()
+    if (key.isBlank()) return null
+    return when {
+        "weekly" in key -> "weekly"
+        "monthly" in key -> "monthly"
+        "yearly" in key || "annual" in key -> "yearly"
+        else -> null
+    }
 }
 
 private fun premiumTierRank(skuId: String, plans: List<SkuItem>): Int {
@@ -468,6 +467,7 @@ private fun keyFrom(raw: String): AppTextKey? = when (raw) {
     "action_sign_in" -> AppTextKey.ActionSignIn
     "action_save" -> AppTextKey.ActionSave
     "action_load_plans" -> AppTextKey.ActionLoadPlans
+    "action_load_user_info" -> AppTextKey.ActionLoadUserInfo
     else -> null
 }
 

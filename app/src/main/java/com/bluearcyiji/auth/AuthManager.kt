@@ -91,6 +91,17 @@ object AuthManager {
         return premiumExpireTimeEpochSeconds
     }
 
+    fun updatePremiumStatus(premiumInfo: String, premiumExpireTimeEpochSeconds: Long) {
+        if (::tokenStore.isInitialized) {
+            tokenStore.savePremiumStatus(
+                premiumInfo = premiumInfo,
+                premiumExpireTimeEpochSeconds = premiumExpireTimeEpochSeconds,
+            )
+        }
+        inMemoryPremiumInfo = premiumInfo
+        this.premiumExpireTimeEpochSeconds = premiumExpireTimeEpochSeconds
+    }
+
     fun shouldRefreshToken(bufferSeconds: Long = 60L): Boolean {
         val token = inMemoryToken
         if (token.isNullOrBlank()) return false

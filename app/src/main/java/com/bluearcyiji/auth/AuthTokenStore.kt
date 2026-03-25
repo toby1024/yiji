@@ -54,6 +54,13 @@ class AuthTokenStore(context: Context) {
         return preferences.getLong(KEY_PREMIUM_EXPIRE_EPOCH_SECONDS, 0L)
     }
 
+    fun savePremiumStatus(premiumInfo: String, premiumExpireTimeEpochSeconds: Long) {
+        preferences.edit()
+            .putString(KEY_PREMIUM_INFO, premiumInfo)
+            .putLong(KEY_PREMIUM_EXPIRE_EPOCH_SECONDS, premiumExpireTimeEpochSeconds)
+            .apply()
+    }
+
     fun clearToken() {
         preferences.edit()
             .remove(KEY_SERVER_TOKEN)
