@@ -84,6 +84,7 @@ class MainViewModel(
                 premiumInfo = null,
                 premiumExpireTimeEpochSeconds = null,
                 currentSubscriptionSkuId = null,
+                currentSubscriptionBasePlanId = null,
                 loginInProgress = false,
                 isRestoringSession = false,
                 showProfileMenu = false,
@@ -307,21 +308,33 @@ class MainViewModel(
         _state.update { it.copy(showPremiumDialog = false) }
     }
 
-    fun onPremiumSkuSelected(skuId: String) {
-        _state.update { it.copy(selectedPremiumSkuId = skuId) }
+    fun onPremiumSkuSelected(sku: com.bluearcyiji.network.SkuItem) {
+        _state.update { it.copy(selectedPremiumSkuId = sku.skuId, selectedPremiumBasePlanId = sku.basePlanId) }
     }
 
     fun onSubscriptionPurchaseSucceeded(purchasedProductIds: List<String>) {
         if (purchasedProductIds.isEmpty()) return
         val purchased = purchasedProductIds.firstOrNull()
         _state.update { current ->
-            val matchedSku = current.premiumPlans.firstOrNull { it.skuId in purchasedProductIds }
+            // Prefer the plan the user explicitly selected; fall back to any matching product ID.
+            // When multiple plans share the same skuId (same product_id, different base_plan_id),
+            // basePlanId is required to uniquely identify the purchased plan.
+            val matchedSku = current.premiumPlans.firstOrNull {
+                it.skuId == current.selectedPremiumSkuId &&
+                    (current.selectedPremiumBasePlanId.isNullOrBlank() || it.basePlanId == current.selectedPremiumBasePlanId)
+            } ?: current.premiumPlans.firstOrNull {
+                // Secondary: match by productId + basePlanId (handles same-productId model)
+                it.skuId in purchasedProductIds &&
+                    !current.selectedPremiumBasePlanId.isNullOrBlank() &&
+                    it.basePlanId == current.selectedPremiumBasePlanId
+            } ?: current.premiumPlans.firstOrNull { it.skuId in purchasedProductIds }
             val normalizedInfo = resolveSubscriptionTier(
                 planName = matchedSku?.skuName,
                 skuId = matchedSku?.skuId ?: purchased,
             ) ?: current.premiumInfo
             current.copy(
                 currentSubscriptionSkuId = matchedSku?.skuId ?: purchased ?: current.currentSubscriptionSkuId,
+                currentSubscriptionBasePlanId = matchedSku?.basePlanId ?: current.currentSubscriptionBasePlanId,
                 premiumInfo = normalizedInfo,
             )
         }
@@ -345,25 +358,28 @@ class MainViewModel(
                 premiumLoading = true,
                 premiumPlans = emptyList(),
                 selectedPremiumSkuId = null,
+                selectedPremiumBasePlanId = null,
             )
         }
 
         repository.getSkuList()
             .onSuccess { skuResponse ->
                 val ordered = skuResponse.skuList.subscription.sortedBy { premiumRank(it.skuName, it.skuId) }
-                val currentSkuId = resolveCurrentSubscriptionSkuId(_state.value.premiumInfo, ordered)
-                val selected = currentSkuId
+                val currentPlan = resolveCurrentSubscriptionPlan(_state.value.premiumInfo, ordered)
+                val selectedPlan = currentPlan
                     ?: ordered.firstOrNull {
-                        val key = "${it.skuId} ${it.skuName}".lowercase(Locale.US)
+                        val key = "${it.skuId} ${it.skuName} ${it.basePlanId}".lowercase(Locale.US)
                         "monthly" in key
-                    }?.skuId
-                    ?: ordered.firstOrNull()?.skuId
+                    }
+                    ?: ordered.firstOrNull()
 
                 _state.update {
                     it.copy(
                         premiumPlans = ordered,
-                        selectedPremiumSkuId = selected,
-                        currentSubscriptionSkuId = currentSkuId,
+                        selectedPremiumSkuId = selectedPlan?.skuId,
+                        selectedPremiumBasePlanId = selectedPlan?.basePlanId,
+                        currentSubscriptionSkuId = currentPlan?.skuId,
+                        currentSubscriptionBasePlanId = currentPlan?.basePlanId,
                     )
                 }
             }
@@ -530,6 +546,7 @@ class MainViewModel(
                 premiumInfo = null,
                 premiumExpireTimeEpochSeconds = null,
                 currentSubscriptionSkuId = null,
+                currentSubscriptionBasePlanId = null,
                 showProfileMenu = false,
                 loginInProgress = false,
                 isRestoringSession = false,
@@ -538,11 +555,18 @@ class MainViewModel(
         }
     }
 
-    private fun resolveCurrentSubscriptionSkuId(premiumInfo: String?, plans: List<com.bluearcyiji.network.SkuItem>): String? {
+    private fun resolveCurrentSubscriptionPlan(premiumInfo: String?, plans: List<com.bluearcyiji.network.SkuItem>): com.bluearcyiji.network.SkuItem? {
         val raw = premiumInfo?.trim().orEmpty()
         if (raw.isBlank() || plans.isEmpty()) return null
 
-        plans.firstOrNull { it.skuId.equals(raw, ignoreCase = true) }?.let { return it.skuId }
+        // 1. Exact match by skuId — only return early when it uniquely identifies one plan.
+        //    With same-productId model, multiple plans share the same skuId and must be
+        //    disambiguated by basePlanId in the steps below.
+        val bySkuId = plans.filter { it.skuId.equals(raw, ignoreCase = true) }
+        if (bySkuId.size == 1) return bySkuId.first()
+
+        // 2. Exact match by basePlanId (server may return "monthly" / "yearly" as premiumInfo)
+        plans.firstOrNull { it.basePlanId.equals(raw, ignoreCase = true) }?.let { return it }
 
         val normalizedRaw = raw.lowercase(Locale.US)
         val tier = when {
@@ -553,15 +577,15 @@ class MainViewModel(
         }
         if (tier.isNotBlank()) {
             plans.firstOrNull {
-                val key = "${it.skuId} ${it.skuName}".lowercase(Locale.US)
+                val key = "${it.skuId} ${it.skuName} ${it.basePlanId}".lowercase(Locale.US)
                 tier in key || (tier == "yearly" && "annual" in key)
-            }?.let { return it.skuId }
+            }?.let { return it }
         }
 
         return plans.firstOrNull {
-            val key = "${it.skuId} ${it.skuName}".lowercase(Locale.US)
+            val key = "${it.skuId} ${it.skuName} ${it.basePlanId}".lowercase(Locale.US)
             normalizedRaw in key || key in normalizedRaw
-        }?.skuId
+        }
     }
 
     private fun resolveSubscriptionTier(planName: String?, skuId: String?): String? {

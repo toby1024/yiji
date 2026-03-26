@@ -230,7 +230,11 @@ fun PremiumOverlayDialog(
     loading: Boolean,
     plans: List<SkuItem>,
     selectedSkuId: String?,
+    /** Base plan ID of the selected plan; used to disambiguate when multiple plans share the same skuId. */
+    selectedBasePlanId: String? = null,
     currentSkuId: String?,
+    /** Base plan ID of the active subscription. */
+    currentBasePlanId: String? = null,
     title: String,
     subtitle: String,
     loadingText: String,
@@ -297,7 +301,9 @@ fun PremiumOverlayDialog(
                     PremiumSkuList(
                         skus = plans,
                         selectedSkuId = selectedSkuId,
+                        selectedBasePlanId = selectedBasePlanId,
                         currentSkuId = currentSkuId,
+                        currentBasePlanId = currentBasePlanId,
                         onSkuSelected = onSkuSelected,
                         priceFormatter = priceFormatter,
                     )

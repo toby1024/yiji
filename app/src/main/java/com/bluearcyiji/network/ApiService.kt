@@ -24,7 +24,7 @@ data class RefreshTokenRequest(
 
 @Keep
 data class BaseResponse<T>(
-    val code: String?,
+    val code: Int?,
     val message: String?,
     val data: T?,
 )
@@ -35,13 +35,15 @@ data class UserLoginData(
     val token: String,
     val refreshToken: String,
     val expiresIn: Long,
-    val premiumInfo: String,
+    val premiumInfo: String?,
     val premiumExpireTime: Long,
 )
 
 @Keep
 data class SkuItem(
     val skuId: String,
+    /** Google Play base plan ID, e.g. "monthly" / "yearly". Empty for one-time products. */
+    val basePlanId: String = "",
     val skuName: String,
     val skuPrice: Int,
     val quantity: Int,

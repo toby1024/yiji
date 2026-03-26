@@ -12,6 +12,8 @@ data class MainUiState(
     val premiumInfo: String? = null,
     val premiumExpireTimeEpochSeconds: Long? = null,
     val currentSubscriptionSkuId: String? = null,
+    /** Google Play base plan ID of the active subscription (e.g. "monthly"). */
+    val currentSubscriptionBasePlanId: String? = null,
     val showProfileMenu: Boolean = false,
     val loginInProgress: Boolean = false,
     val messageTone: MessageTone = MessageTone.Info,
@@ -21,6 +23,8 @@ data class MainUiState(
     val premiumLoading: Boolean = false,
     val premiumPlans: List<SkuItem> = emptyList(),
     val selectedPremiumSkuId: String? = null,
+    /** Google Play base plan ID of the plan the user has highlighted in the dialog. */
+    val selectedPremiumBasePlanId: String? = null,
     val clickCount: Int = 0,
     val startTimeMillis: Long = 0L,
     val lastClickTimeMillis: Long = 0L,

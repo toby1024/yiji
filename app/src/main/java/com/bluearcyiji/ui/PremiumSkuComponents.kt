@@ -157,7 +157,7 @@ fun PremiumSkuCard(
         }
 
         // Most-popular badge — only shown when not the current plan
-        if (showPopularBadge && !isCurrent) {
+        if (showPopularBadge) {
             val badgeColor = if (selected) selectedBorderColor else unselectedBorderColor
             Text(
                 text = "MOST POPULAR",
@@ -178,7 +178,11 @@ fun PremiumSkuCard(
 fun PremiumSkuList(
     skus: List<SkuItem>,
     selectedSkuId: String?,
+    /** Base plan ID of the selected plan; disambiguates plans that share the same skuId. */
+    selectedBasePlanId: String? = null,
     currentSkuId: String?,
+    /** Base plan ID of the active subscription. */
+    currentBasePlanId: String? = null,
     onSkuSelected: (SkuItem) -> Unit,
     priceFormatter: (Int) -> String,
     modifier: Modifier = Modifier,
@@ -190,8 +194,10 @@ fun PremiumSkuList(
         skus.forEach { sku ->
             PremiumSkuCard(
                 sku = sku,
-                selected = sku.skuId == selectedSkuId,
-                isCurrent = sku.skuId == currentSkuId,
+                selected = sku.skuId == selectedSkuId &&
+                    (selectedBasePlanId.isNullOrBlank() || sku.basePlanId == selectedBasePlanId),
+                isCurrent = sku.skuId == currentSkuId &&
+                    (currentBasePlanId.isNullOrBlank() || sku.basePlanId == currentBasePlanId),
                 onClick = { onSkuSelected(sku) },
                 priceText = priceFormatter(sku.skuPrice),
                 modifier = Modifier.fillMaxWidth(),

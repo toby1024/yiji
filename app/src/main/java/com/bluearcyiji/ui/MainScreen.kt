@@ -142,6 +142,10 @@ fun MainScreen(vm: MainViewModel) {
             vm.onGoogleSignInCancelled()
         } catch (e: GetCredentialException) {
             vm.onGoogleSignInFailed(e.message ?: t(AppTextKey.ErrorNetwork))
+        } catch (e: Exception) {
+            // Catches unexpected exceptions (e.g. GoogleIdTokenParsingException from createFrom).
+            // Without this, loginInProgress stays true and subsequent login taps are silently dropped.
+            vm.onGoogleSignInFailed(e.message ?: t(AppTextKey.ErrorNetwork))
         }
     }
 
@@ -270,7 +274,9 @@ fun MainScreen(vm: MainViewModel) {
             loading = state.premiumLoading,
             plans = state.premiumPlans,
             selectedSkuId = state.selectedPremiumSkuId,
+            selectedBasePlanId = state.selectedPremiumBasePlanId,
             currentSkuId = state.currentSubscriptionSkuId,
+            currentBasePlanId = state.currentSubscriptionBasePlanId,
             title = t(AppTextKey.PremiumDialogTitle),
             subtitle = if (state.premiumDialogShowSubtitle) t(AppTextKey.MsgPremiumRequired) else "",
             loadingText = t(AppTextKey.PremiumDialogLoading),
@@ -279,7 +285,7 @@ fun MainScreen(vm: MainViewModel) {
             continueText = "Continue",
             cancelAnytimeText = "Cancel anytime",
             onDismiss = vm::onPremiumDismiss,
-            onSkuSelected = { sku -> vm.onPremiumSkuSelected(sku.skuId) },
+            onSkuSelected = { sku -> vm.onPremiumSkuSelected(sku) },
             onContinue = {
                 val skuId = state.selectedPremiumSkuId
                 val bm = billingManager
@@ -292,18 +298,25 @@ fun MainScreen(vm: MainViewModel) {
                     return@PremiumOverlayDialog
                 }
                 val currentSkuId = state.currentSubscriptionSkuId
-                if (!currentSkuId.isNullOrBlank() && currentSkuId == skuId) {
+                val currentBasePlanId = state.currentSubscriptionBasePlanId
+                val selectedBasePlanId = state.selectedPremiumBasePlanId
+                if (!currentSkuId.isNullOrBlank() && currentSkuId == skuId &&
+                    !currentBasePlanId.isNullOrBlank() && currentBasePlanId == selectedBasePlanId) {
                     vm.showInfoMessage("你已经在当前订阅方案")
                     return@PremiumOverlayDialog
                 }
                 bm.launchSubscriptionPurchase(
                     activity = activity,
                     productId = skuId,
+                    basePlanId = selectedBasePlanId.orEmpty(),
                     obfuscatedExternalAccountId = state.billingAccountId,
                     previousProductId = currentSkuId,
+                    previousBasePlanId = currentBasePlanId,
                     changeMode = resolveSubscriptionChangeMode(
                         currentSkuId = currentSkuId,
+                        currentBasePlanId = currentBasePlanId,
                         targetSkuId = skuId,
+                        targetBasePlanId = selectedBasePlanId.orEmpty(),
                         plans = state.premiumPlans,
                     ),
                 )
@@ -317,9 +330,19 @@ fun MainScreen(vm: MainViewModel) {
                     premiumInfo = state.premiumInfo,
                     plans = state.premiumPlans,
                     currentSkuId = state.currentSubscriptionSkuId,
+                    currentBasePlanId = state.currentSubscriptionBasePlanId,
                     freeLabel = t(AppTextKey.SubscriptionFreePlan),
                 ),
                 onClick = vm::onSubscriptionBadgeClick,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .statusBarsPadding()
+                    .padding(start = 4.dp, top = 2.dp),
+            )
+        } else {
+            SubscriptionTriangleBadge(
+                planText = t(AppTextKey.SubscriptionFreePlan),
+                onClick = vm::requestGoogleSignIn,
                 modifier = Modifier
                     .align(Alignment.TopStart)
                     .statusBarsPadding()
@@ -394,14 +417,21 @@ private fun resolvePlanLabel(
     premiumInfo: String?,
     plans: List<SkuItem>,
     currentSkuId: String?,
+    /** Base plan ID of the active subscription; required to disambiguate when plans share the same skuId. */
+    currentBasePlanId: String? = null,
     freeLabel: String,
 ): String {
     resolveTierLabel(premiumInfo)?.let { return it }
 
     val matched = currentSkuId?.let { skuId ->
-        plans.firstOrNull { it.skuId == skuId }
+        // Prefer the plan that matches both skuId and basePlanId (same-productId model).
+        plans.firstOrNull {
+            it.skuId == skuId &&
+                (!currentBasePlanId.isNullOrBlank() && it.basePlanId == currentBasePlanId)
+        } ?: plans.firstOrNull { it.skuId == skuId }
     }
-    val key = "${currentSkuId.orEmpty()} ${matched?.skuName.orEmpty()}"
+    // Include basePlanId in the key so tier can be resolved from it when skuName lacks tier info.
+    val key = "${currentSkuId.orEmpty()} ${matched?.skuName.orEmpty()} ${matched?.basePlanId.orEmpty()}"
     return resolveTierLabel(key) ?: freeLabel
 }
 
@@ -416,9 +446,10 @@ private fun resolveTierLabel(raw: String?): String? {
     }
 }
 
-private fun premiumTierRank(skuId: String, plans: List<SkuItem>): Int {
-    val sku = plans.firstOrNull { it.skuId == skuId }
-    val key = "${skuId} ${sku?.skuName.orEmpty()}".lowercase(Locale.US)
+private fun premiumTierRank(skuId: String, basePlanId: String?, plans: List<SkuItem>): Int {
+    val sku = plans.firstOrNull { it.skuId == skuId && (basePlanId.isNullOrBlank() || it.basePlanId == basePlanId) }
+        ?: plans.firstOrNull { it.skuId == skuId }
+    val key = "${skuId} ${sku?.skuName.orEmpty()} ${sku?.basePlanId.orEmpty()} ${basePlanId.orEmpty()}".lowercase(Locale.US)
     return when {
         "weekly" in key -> 1
         "monthly" in key -> 2
@@ -429,12 +460,14 @@ private fun premiumTierRank(skuId: String, plans: List<SkuItem>): Int {
 
 private fun resolveSubscriptionChangeMode(
     currentSkuId: String?,
+    currentBasePlanId: String?,
     targetSkuId: String,
+    targetBasePlanId: String,
     plans: List<SkuItem>,
 ): SubscriptionChangeMode? {
     val current = currentSkuId ?: return null
-    val currentRank = premiumTierRank(current, plans)
-    val targetRank = premiumTierRank(targetSkuId, plans)
+    val currentRank = premiumTierRank(current, currentBasePlanId, plans)
+    val targetRank = premiumTierRank(targetSkuId, targetBasePlanId, plans)
     if (currentRank <= 0 || targetRank <= 0) return null
     return if (targetRank > currentRank) SubscriptionChangeMode.UPGRADE else SubscriptionChangeMode.DOWNGRADE
 }

@@ -13,7 +13,6 @@ import com.android.billingclient.api.ProductDetails
 import com.android.billingclient.api.ProductDetailsResponseListener
 import com.android.billingclient.api.Purchase
 import com.android.billingclient.api.PurchasesUpdatedListener
-import com.android.billingclient.api.QueryPurchasesParams
 import com.android.billingclient.api.QueryProductDetailsParams
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -91,11 +90,16 @@ class BillingManager(
         billingClient.endConnection()
     }
 
+    @Suppress("UNUSED_PARAMETER")
     fun launchSubscriptionPurchase(
         activity: Activity,
         productId: String,
+        /** Google Play base plan ID (e.g. "monthly", "yearly"). Used to pick the correct offer token. */
+        basePlanId: String = "",
         obfuscatedExternalAccountId: String? = null,
         previousProductId: String? = null,
+        /** Base plan ID of the currently active subscription, used for upgrade/downgrade detection. */
+        previousBasePlanId: String? = null,
         changeMode: SubscriptionChangeMode? = null,
     ) {
         if (!billingClient.isReady) {
@@ -109,22 +113,45 @@ class BillingManager(
                 Log.e(TAG, "Product details not found for productId=$productId")
                 return@querySubscriptionProductDetails
             }
+
             val offerToken = details.subscriptionOfferDetails
-                ?.firstOrNull()
+                ?.let { offers ->
+                    if (basePlanId.isNotBlank()) {
+                        // Prefer exact base plan match; fall back to first available offer
+                        offers.firstOrNull { it.basePlanId == basePlanId } ?: offers.firstOrNull()
+                    } else {
+                        offers.firstOrNull()
+                    }
+                }
                 ?.offerToken
                 .orEmpty()
             if (offerToken.isBlank()) {
-                Log.w(
-                    TAG,
-                    "No offer token for productId=$productId, subscriptionOfferDetails=${details.subscriptionOfferDetails}"
-                )
+                Log.w(TAG, "No offer token for productId=$productId, basePlanId=$basePlanId")
             }
 
             val productParams = BillingFlowParams.ProductDetailsParams.newBuilder()
                 .setProductDetails(details)
                 .apply {
-                    if (offerToken.isNotBlank()) {
-                        setOfferToken(offerToken)
+                    if (offerToken.isNotBlank()) setOfferToken(offerToken)
+
+                    val isCrossProduct = !previousProductId.isNullOrBlank() &&
+                        previousProductId != productId
+                    if (isCrossProduct) {
+                        val replacementMode = when (changeMode) {
+                            SubscriptionChangeMode.DOWNGRADE ->
+                                BillingFlowParams.ProductDetailsParams
+                                    .SubscriptionProductReplacementParams.ReplacementMode.DEFERRED
+                            else ->
+                                BillingFlowParams.ProductDetailsParams
+                                    .SubscriptionProductReplacementParams.ReplacementMode.CHARGE_FULL_PRICE
+                        }
+                        setSubscriptionProductReplacementParams(
+                            BillingFlowParams.ProductDetailsParams.SubscriptionProductReplacementParams
+                                .newBuilder()
+                                .setOldProductId(previousProductId)
+                                .setReplacementMode(replacementMode)
+                                .build()
+                        )
                     }
                 }
                 .build()
@@ -132,7 +159,6 @@ class BillingManager(
             val flowParamsBuilder = BillingFlowParams.newBuilder()
                 .setProductDetailsParamsList(listOf(productParams))
 
-            // Prioritize per-call value, then fallback to global provider.
             val normalizedObfuscatedAccountId = obfuscatedExternalAccountId
                 ?.trim()
                 ?.takeIf { it.isNotBlank() }
@@ -145,60 +171,15 @@ class BillingManager(
                 flowParamsBuilder.setObfuscatedAccountId(normalizedObfuscatedAccountId)
             }
 
-            queryActiveSubscription(previousProductId) { activePurchase ->
-                if (activePurchase != null && previousProductId != productId) {
-                    val replacementMode = when (changeMode) {
-                        SubscriptionChangeMode.UPGRADE ->
-                            BillingFlowParams.SubscriptionUpdateParams.ReplacementMode.CHARGE_PRORATED_PRICE
-
-                        SubscriptionChangeMode.DOWNGRADE ->
-                            BillingFlowParams.SubscriptionUpdateParams.ReplacementMode.DEFERRED
-
-                        null ->
-                            BillingFlowParams.SubscriptionUpdateParams.ReplacementMode.CHARGE_PRORATED_PRICE
-                    }
-                    val updateParams = BillingFlowParams.SubscriptionUpdateParams.newBuilder()
-                        .setOldPurchaseToken(activePurchase.purchaseToken)
-                        .setSubscriptionReplacementMode(replacementMode)
-                        .build()
-                    flowParamsBuilder.setSubscriptionUpdateParams(updateParams)
-                }
-
-                val flowParams = flowParamsBuilder.build()
-                val result = billingClient.launchBillingFlow(activity, flowParams)
-                if (result.responseCode != BillingClient.BillingResponseCode.OK) {
-                    eventsChannel.trySend(BillingEvent.Error(result.debugMessage))
-                    Log.e(
-                        TAG,
-                        "launchBillingFlow failed: code=${result.responseCode}, message=${result.debugMessage}"
-                    )
-                }
-            }
-        }
-    }
-
-    private fun queryActiveSubscription(previousProductId: String?, onResult: (Purchase?) -> Unit) {
-        if (previousProductId.isNullOrBlank()) {
-            onResult(null)
-            return
-        }
-
-        val params = QueryPurchasesParams.newBuilder()
-            .setProductType(BillingClient.ProductType.SUBS)
-            .build()
-
-        billingClient.queryPurchasesAsync(params) { result, purchases ->
+            val flowParams = flowParamsBuilder.build()
+            val result = billingClient.launchBillingFlow(activity, flowParams)
             if (result.responseCode != BillingClient.BillingResponseCode.OK) {
-                val msg = billingMessage("queryPurchasesAsync failed", result)
-                eventsChannel.trySend(BillingEvent.Error(msg))
-                Log.e(TAG, "$msg, previousProductId=$previousProductId")
-                onResult(null)
-                return@queryPurchasesAsync
+                eventsChannel.trySend(BillingEvent.Error(result.debugMessage))
+                Log.e(
+                    TAG,
+                    "launchBillingFlow failed: code=${result.responseCode}, message=${result.debugMessage}"
+                )
             }
-
-            val purchased = purchases.orEmpty().filter { it.purchaseState == Purchase.PurchaseState.PURCHASED }
-            val matched = purchased.firstOrNull { it.products.contains(previousProductId) } ?: purchased.firstOrNull()
-            onResult(matched)
         }
     }
 
@@ -305,4 +286,3 @@ enum class SubscriptionChangeMode {
     UPGRADE,
     DOWNGRADE,
 }
-

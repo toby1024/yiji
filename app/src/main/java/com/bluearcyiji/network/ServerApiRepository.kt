@@ -27,8 +27,8 @@ class ServerApiRepository(
     private val apiService: ApiService = ApiClient.service,
 ) {
 
-    private fun isBusinessSuccess(code: String?): Boolean {
-        return code == "200"
+    private fun isBusinessSuccess(code: Int?): Boolean {
+        return code == 200
     }
 
     private fun <T> unwrapOrThrow(baseResponse: BaseResponse<T>?): T {
@@ -77,7 +77,7 @@ class ServerApiRepository(
             token = token,
             refreshToken = refreshToken,
             expiresAtEpochSeconds = nowEpochSeconds + expiresIn,
-            premiumInfo = premiumInfo,
+            premiumInfo = premiumInfo.orEmpty(),
             premiumExpireTimeEpochSeconds = normalizeEpochSeconds(premiumExpireTime),
         )
     }
@@ -124,13 +124,13 @@ class ServerApiRepository(
             }
             val payload = response.body() ?: return@runCatching
             if (!isBusinessSuccess(payload.code)) {
-                if (payload.code == "402") {
+                if (payload.code == 402) {
                     throw ApiHttpException(
                         statusCode = 402,
                         message = "Business error 402: ${payload.message.orEmpty()}",
                     )
                 }
-                if (payload.code == "403") {
+                if (payload.code == 403) {
                     throw ApiHttpException(
                         statusCode = 403,
                         message = "Business error 403: ${payload.message.orEmpty()}",
