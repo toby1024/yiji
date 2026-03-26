@@ -379,11 +379,25 @@ fun MainScreen(vm: MainViewModel) {
 
         // Account page — full-screen overlay rendered on top of everything
         if (state.showAccountScreen) {
+            val tierLabel = resolveTierLabel(state.premiumInfo)
+            val subscriptionInfoText = buildString {
+                if (tierLabel != null) {
+                    append(tierLabel)
+                    val expireSeconds = state.premiumExpireTimeEpochSeconds
+                    if (expireSeconds != null && expireSeconds > 0L) {
+                        val date = java.util.Date(expireSeconds * 1000L)
+                        val formatted = java.text.SimpleDateFormat("MMM d, yyyy", java.util.Locale.US).format(date)
+                        append(" · Expires $formatted")
+                    }
+                } else {
+                    append(t(AppTextKey.SubscriptionFreePlan))
+                }
+            }
             AccountScreen(
                 userName = state.loggedInUserName,
+                subscriptionInfoText = subscriptionInfoText,
                 helpCenterText = t(AppTextKey.HelpCenter),
                 onBack = vm::onAccountBack,
-                onHelpCenterClick = vm::onHelpCenterClick,
             )
         }
     }
