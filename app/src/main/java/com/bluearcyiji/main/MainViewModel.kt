@@ -101,6 +101,46 @@ class MainViewModel(
         _state.update { it.copy(showAccountScreen = false) }
     }
 
+    fun onDeleteAccountClick() {
+        _state.update { it.copy(showDeleteAccountDialog = true) }
+    }
+
+    fun onDeleteAccountDismiss() {
+        _state.update { it.copy(showDeleteAccountDialog = false) }
+    }
+
+    fun onDeleteAccountConfirm() {
+        _state.update { it.copy(isDeletingAccount = true) }
+        viewModelScope.launch {
+            repository.deleteAccount()
+                .onSuccess {
+                    AuthManager.clearToken()
+                    _state.update {
+                        it.copy(
+                            serverToken = null,
+                            loggedInUserName = null,
+                            billingAccountId = null,
+                            premiumInfo = null,
+                            premiumExpireTimeEpochSeconds = null,
+                            currentSubscriptionSkuId = null,
+                            currentSubscriptionBasePlanId = null,
+                            loginInProgress = false,
+                            isRestoringSession = false,
+                            showProfileMenu = false,
+                            showAccountScreen = false,
+                            showDeleteAccountDialog = false,
+                            isDeletingAccount = false,
+                        )
+                    }
+                    emitMessage("Account deleted successfully.", MessageTone.Success)
+                }
+                .onFailure { error ->
+                    _state.update { it.copy(showDeleteAccountDialog = false, isDeletingAccount = false) }
+                    emitMessage("Failed to delete account: ${error.message}", MessageTone.Error)
+                }
+        }
+    }
+
     fun onHelpCenterClick() {
         emitMessage("msg_help_center_coming_soon", MessageTone.Info)
     }

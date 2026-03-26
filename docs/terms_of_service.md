@@ -54,9 +54,37 @@ YIJI offers auto-renewing subscription plans processed through **Google Play Bil
 - Cancellation takes effect at the end of the current billing period. No partial refunds are issued for unused time, except where required by applicable law.
 - Upgrading between plans takes effect **immediately** (pro-rated). Downgrading takes effect at the **next renewal date**.
 
+### 4.1 Auto-Renewal Rules
+
+- Each subscription plan renews automatically at the end of the active billing period at the same price, unless you cancel before the renewal deadline.
+- **Renewal deadlines:** cancellation must be submitted at least **24 hours before** the renewal date.
+- Google Play will charge the payment method on file at the time of renewal. You will receive a notification from Google Play before each renewal charge.
+- If a renewal payment fails, Google Play will retry the charge. During the grace period, Premium access may be maintained at Google Play's discretion. If the payment continues to fail, your subscription will lapse and your account will revert to the Free plan. No data is deleted.
+- Price changes, if any, will be communicated at least **30 days** in advance. Continued use of the subscription after a price change constitutes acceptance of the new price.
+
+### 4.2 Refund Policy
+
+- All subscription purchases are final and **non-refundable** except where required by applicable law or Google Play's refund policies.
+- **Google Play refund window:** you may request a refund for a new subscription through Google Play within **48 hours** of the initial purchase. After this window, refunds are at Google Play's discretion.
+- **How to request a refund:** visit [Google Play — Request a refund](https://support.google.com/googleplay/answer/2479637) or contact Google Play support directly. YIJI does not process refunds independently; all billing is managed by Google LLC.
+- Partial refunds for unused days within a billing period are not available, except where required by local consumer protection law (e.g., EU consumer rights).
+- Refunds are not issued for: forgetting to cancel before renewal, accidental purchases reported after the refund window, or dissatisfaction after significant use of the service.
+- If you believe you have been charged in error, contact us at toby.cheung3305@gmail.com and we will assist you in submitting a refund request to Google Play.
+
 ---
 
-## 5. Data Collection & Privacy
+## 5. Account Deletion
+
+You may request permanent deletion of your account at any time.
+
+- Account deletion can be initiated from the **Account** screen within the app.
+- Upon deletion: all tap session records, statistics, and associated personal data stored on our servers will be **permanently erased**. This action **cannot be undone**.
+- **Important:** deleting your account does **not** automatically cancel any active subscription. You must cancel your subscription separately through **Google Play → Subscriptions** before or after account deletion to stop future charges.
+- After account deletion you will be signed out immediately. You may create a new account by signing in again, but previously deleted data cannot be restored.
+
+---
+
+## 6. Data Collection & Privacy
 
 We collect only the minimum data necessary to operate the App:
 
@@ -70,7 +98,7 @@ The App may use analytics tools to measure aggregate usage patterns. No personal
 
 ---
 
-## 6. Intellectual Property
+## 7. Intellectual Property
 
 All content, design, graphics, code, and other materials within the App are the exclusive property of YIJI and are protected by copyright, trademark, and other applicable intellectual property laws.
 
@@ -78,7 +106,7 @@ You are granted a limited, non-exclusive, non-transferable, revocable license to
 
 ---
 
-## 7. Prohibited Conduct
+## 8. Prohibited Conduct
 
 You agree **not** to:
 
@@ -90,13 +118,13 @@ You agree **not** to:
 
 ---
 
-## 8. Disclaimer of Warranties
+## 9. Disclaimer of Warranties
 
 THE APP IS PROVIDED "AS IS" WITHOUT WARRANTIES OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. WE DO NOT WARRANT THAT THE APP WILL BE UNINTERRUPTED, ERROR-FREE, OR FREE OF VIRUSES OR OTHER HARMFUL COMPONENTS.
 
 ---
 
-## 9. Limitation of Liability
+## 10. Limitation of Liability
 
 TO THE FULLEST EXTENT PERMITTED BY LAW, YIJI SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES ARISING FROM YOUR USE OF OR INABILITY TO USE THE APP, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
 
@@ -104,7 +132,7 @@ OUR TOTAL LIABILITY TO YOU FOR ALL CLAIMS ARISING FROM YOUR USE OF THE APP SHALL
 
 ---
 
-## 10. Termination
+## 11. Termination
 
 We reserve the right to suspend or terminate your access to the App at any time, with or without cause, and with or without notice. Upon termination, all licenses granted to you under these Terms will immediately cease.
 
@@ -112,13 +140,13 @@ You may terminate your account at any time by cancelling any active subscription
 
 ---
 
-## 11. Governing Law
+## 12. Governing Law
 
 These Terms are governed by and construed in accordance with applicable laws, without regard to conflict-of-law provisions. Any disputes arising under these Terms shall be resolved through binding arbitration or in a court of competent jurisdiction.
 
 ---
 
-## 12. Contact Us
+## 13. Contact Us
 
 If you have any questions, concerns, or feedback regarding these Terms, please reach out:
 

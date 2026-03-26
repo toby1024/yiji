@@ -9,6 +9,7 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
@@ -16,13 +17,19 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -60,6 +67,11 @@ fun AccountScreen(
     subscriptionInfoText: String,
     helpCenterText: String,
     onBack: () -> Unit,
+    showDeleteAccountDialog: Boolean = false,
+    isDeletingAccount: Boolean = false,
+    onDeleteAccountClick: () -> Unit = {},
+    onDeleteAccountConfirm: () -> Unit = {},
+    onDeleteAccountDismiss: () -> Unit = {},
 ) {
     val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current
@@ -209,7 +221,92 @@ fun AccountScreen(
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
+
+            // ── Delete Account ────────────────────────────────────────────
+            Spacer(modifier = Modifier.weight(1f))
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 32.dp, vertical = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedButton(
+                    onClick = onDeleteAccountClick,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = Color(0xFFD32F2F),
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFD32F2F).copy(alpha = 0.6f)),
+                    enabled = !isDeletingAccount,
+                ) {
+                    if (isDeletingAccount) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = Color(0xFFD32F2F),
+                        )
+                    } else {
+                        Text(
+                            text = "Delete Account",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                        )
+                    }
+                }
+                Text(
+                    text = "Permanently removes your account and all data.",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.38f),
+                    textAlign = TextAlign.Center,
+                )
+            }
         }
+    }
+
+    // ── Confirmation dialog ───────────────────────────────────────────────────
+    if (showDeleteAccountDialog) {
+        AlertDialog(
+            onDismissRequest = onDeleteAccountDismiss,
+            shape = RoundedCornerShape(16.dp),
+            title = {
+                Text(
+                    text = "Delete Account?",
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFFD32F2F),
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "This action is permanent and cannot be undone.",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = "Once deleted:\n• All your tap session records will be erased\n• Your subscription will not be automatically cancelled — please cancel it separately in Google Play\n• Your account login will be removed immediately\n• Account data cannot be recovered",
+                        fontSize = 13.sp,
+                        lineHeight = 20.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = onDeleteAccountConfirm,
+                    colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFD32F2F)),
+                ) {
+                    Text("Delete", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = onDeleteAccountDismiss) {
+                    Text("Cancel")
+                }
+            },
+        )
     }
 }
 
@@ -238,6 +335,20 @@ private fun AccountScreenPaidPreview() {
             subscriptionInfoText = "Monthly · Expires Jan 1, 2027",
             helpCenterText = "Help Center",
             onBack = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true, name = "Account - delete dialog")
+@Composable
+private fun AccountScreenDeleteDialogPreview() {
+    YIJITheme {
+        AccountScreen(
+            userName = "Ann Vargas",
+            subscriptionInfoText = "Monthly · Expires Jan 1, 2027",
+            helpCenterText = "Help Center",
+            onBack = {},
+            showDeleteAccountDialog = true,
         )
     }
 }

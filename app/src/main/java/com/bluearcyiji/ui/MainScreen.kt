@@ -396,11 +396,16 @@ fun MainScreen(vm: MainViewModel) {
                 }
             }
             AccountScreen(
-                userName = state.loggedInUserName,
-                subscriptionInfoText = subscriptionInfoText,
-                helpCenterText = t(AppTextKey.HelpCenter),
-                onBack = vm::onAccountBack,
-            )
+                    userName = state.loggedInUserName,
+                    subscriptionInfoText = subscriptionInfoText,
+                    helpCenterText = t(AppTextKey.HelpCenter),
+                    onBack = vm::onAccountBack,
+                    showDeleteAccountDialog = state.showDeleteAccountDialog,
+                    isDeletingAccount = state.isDeletingAccount,
+                    onDeleteAccountClick = vm::onDeleteAccountClick,
+                    onDeleteAccountConfirm = vm::onDeleteAccountConfirm,
+                    onDeleteAccountDismiss = vm::onDeleteAccountDismiss,
+                )
         }
 
         // Records page — full-screen overlay

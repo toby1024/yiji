@@ -28,6 +28,8 @@ data class MainUiState(
     val currentSubscriptionBasePlanId: String? = null,
     val showProfileMenu: Boolean = false,
     val showAccountScreen: Boolean = false,
+    val showDeleteAccountDialog: Boolean = false,
+    val isDeletingAccount: Boolean = false,
     val showRecordsScreen: Boolean = false,
     val recordsState: RecordsUiState = RecordsUiState(),
     val loginInProgress: Boolean = false,

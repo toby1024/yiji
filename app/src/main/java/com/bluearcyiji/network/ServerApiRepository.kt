@@ -189,4 +189,19 @@ class ServerApiRepository(
             unwrapOrThrow(response.body())
         }
     }
+
+    suspend fun deleteAccount(): Result<Unit> {
+        return runCatching {
+            val response = apiService.deleteAccount()
+            if (!response.isSuccessful) {
+                val errorBody = response.errorBody()?.string().orEmpty()
+                throwHttpError(response.code(), response.message(), errorBody)
+            }
+            val payload = response.body()
+            if (payload != null && !isBusinessSuccess(payload.code)) {
+                error("Business error ${payload.code}: ${payload.message.orEmpty()}")
+            }
+            Unit
+        }
+    }
 }

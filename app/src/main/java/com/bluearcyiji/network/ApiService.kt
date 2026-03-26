@@ -4,6 +4,7 @@ import androidx.annotation.Keep
 import okhttp3.ResponseBody
 import com.google.gson.annotations.SerializedName
 import retrofit2.Response
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.Body
 import retrofit2.http.POST
@@ -158,4 +159,7 @@ interface ApiService {
 
     @POST("record/history")
     suspend fun getRecordHistory(@Body request: RecordHistoryRequest): Response<BaseResponse<RecordHistoryPage>>
+
+    @DELETE("user/account")
+    suspend fun deleteAccount(): Response<BaseResponse<Any>>
 }
