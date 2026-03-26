@@ -51,6 +51,7 @@ data class MainUiState(
     val tapDetails: List<RecordDetail> = emptyList(),
 ) {
     val isLoggedIn: Boolean get() = loggedInUserName != null || !serverToken.isNullOrBlank()
+    val isPremium: Boolean get() = !premiumInfo.isNullOrBlank() && !premiumInfo.equals("free", ignoreCase = true)
 }
 
 sealed interface MainUiEffect {

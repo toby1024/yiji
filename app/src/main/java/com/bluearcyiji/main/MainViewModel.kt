@@ -115,8 +115,14 @@ class MainViewModel(
     }
 
     fun onLoadMoreRecords() {
-        val rs = _state.value.recordsState
+        val s = _state.value
+        val rs = s.recordsState
         if (rs.loadingMore || rs.isLastPage) return
+        // Pages beyond the first require a premium subscription
+        if (!s.isPremium) {
+            loadPremiumPlansAndShowDialog()
+            return
+        }
         viewModelScope.launch { loadRecords(page = rs.currentPage + 1, refresh = false) }
     }
 

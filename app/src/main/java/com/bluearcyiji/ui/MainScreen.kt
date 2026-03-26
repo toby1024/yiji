@@ -408,6 +408,7 @@ fun MainScreen(vm: MainViewModel) {
             RecordsScreen(
                 title = t(AppTextKey.Records),
                 records = state.recordsState,
+                isPremium = state.isPremium,
                 onBack = vm::onRecordsBack,
                 onLoadMore = vm::onLoadMoreRecords,
             )
