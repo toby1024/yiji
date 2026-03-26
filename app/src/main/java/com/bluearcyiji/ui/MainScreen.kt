@@ -366,9 +366,11 @@ fun MainScreen(vm: MainViewModel) {
                 userName = state.loggedInUserName,
                 profileText = t(AppTextKey.Profile),
                 accountText = t(AppTextKey.Account),
+                recordsText = t(AppTextKey.Records),
                 logoutText = t(AppTextKey.Logout),
                 onDismiss = vm::onProfileDismiss,
                 onAccountClick = vm::onAccountClick,
+                onRecordsClick = vm::onRecordsClick,
                 onLogoutClick = vm::onLogoutClick,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
@@ -386,7 +388,7 @@ fun MainScreen(vm: MainViewModel) {
                     val expireSeconds = state.premiumExpireTimeEpochSeconds
                     if (expireSeconds != null && expireSeconds > 0L) {
                         val date = java.util.Date(expireSeconds * 1000L)
-                        val formatted = java.text.SimpleDateFormat("MMM d, yyyy", java.util.Locale.US).format(date)
+                        val formatted = java.text.SimpleDateFormat("MMM d, yyyy", Locale.US).format(date)
                         append(" · Expires $formatted")
                     }
                 } else {
@@ -398,6 +400,16 @@ fun MainScreen(vm: MainViewModel) {
                 subscriptionInfoText = subscriptionInfoText,
                 helpCenterText = t(AppTextKey.HelpCenter),
                 onBack = vm::onAccountBack,
+            )
+        }
+
+        // Records page — full-screen overlay
+        if (state.showRecordsScreen) {
+            RecordsScreen(
+                title = t(AppTextKey.Records),
+                records = state.recordsState,
+                onBack = vm::onRecordsBack,
+                onLoadMore = vm::onLoadMoreRecords,
             )
         }
     }

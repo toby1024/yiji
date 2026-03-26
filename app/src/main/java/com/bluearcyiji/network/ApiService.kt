@@ -76,6 +76,7 @@ data class RecordRequest(
 data class RecordDetail(
     val sequence: Int,
     val clickTime: String,
+    val duration: Long = 0L,
 )
 
 @Keep
@@ -109,6 +110,32 @@ data class UserInfoResponse(
     val data: UserInfoData?,
 )
 
+@Keep
+data class RecordHistoryRequest(
+    @SerializedName("pageNum") val pageNum: Int,
+    @SerializedName("pageSize") val pageSize: Int,
+)
+
+@Keep
+data class RecordHistoryItem(
+    val totalCnt: Int,
+    val min: Float,
+    val max: Float,
+    val avg: Float,
+    val duration: Float,
+    val details: List<RecordDetail>,
+)
+
+@Keep
+data class RecordHistoryPage(
+    val content: List<RecordHistoryItem>,
+    val totalPages: Int,
+    val number: Int,
+    val last: Boolean,
+    val first: Boolean,
+    val totalElements: Int,
+)
+
 interface ApiService {
 
     @GET("health")
@@ -128,4 +155,7 @@ interface ApiService {
 
     @GET("user/info")
     suspend fun getUserInfo(): Response<UserInfoResponse>
+
+    @POST("record/history")
+    suspend fun getRecordHistory(@Body request: RecordHistoryRequest): Response<BaseResponse<RecordHistoryPage>>
 }

@@ -1,8 +1,20 @@
 package com.bluearcyiji.main
 
 import com.bluearcyiji.network.RecordDetail
+import com.bluearcyiji.network.RecordHistoryItem
 import com.bluearcyiji.network.SkuItem
 import com.bluearcyiji.ui.MessageTone
+
+data class RecordsUiState(
+    val loading: Boolean = false,
+    val items: List<RecordHistoryItem> = emptyList(),
+    val currentPage: Int = 0,
+    val totalPages: Int = 0,
+    val loadingMore: Boolean = false,
+    val error: String? = null,
+) {
+    val isLastPage: Boolean get() = totalPages == 0 || currentPage + 1 >= totalPages
+}
 
 data class MainUiState(
     val loggedInUserName: String? = null,
@@ -16,6 +28,8 @@ data class MainUiState(
     val currentSubscriptionBasePlanId: String? = null,
     val showProfileMenu: Boolean = false,
     val showAccountScreen: Boolean = false,
+    val showRecordsScreen: Boolean = false,
+    val recordsState: RecordsUiState = RecordsUiState(),
     val loginInProgress: Boolean = false,
     val messageTone: MessageTone = MessageTone.Info,
     val isSaving: Boolean = false,

@@ -178,4 +178,15 @@ class ServerApiRepository(
             )
         }
     }
+
+    suspend fun getRecordHistory(pageNum: Int, pageSize: Int): Result<RecordHistoryPage> {
+        return runCatching {
+            val response = apiService.getRecordHistory(RecordHistoryRequest(pageNum, pageSize))
+            if (!response.isSuccessful) {
+                val errorBody = response.errorBody()?.string().orEmpty()
+                throwHttpError(response.code(), response.message(), errorBody)
+            }
+            unwrapOrThrow(response.body())
+        }
+    }
 }

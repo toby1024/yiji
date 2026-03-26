@@ -105,6 +105,55 @@ class MainViewModel(
         emitMessage("msg_help_center_coming_soon", MessageTone.Info)
     }
 
+    fun onRecordsClick() {
+        _state.update { it.copy(showProfileMenu = false, showRecordsScreen = true) }
+        viewModelScope.launch { loadRecords(page = 0, refresh = true) }
+    }
+
+    fun onRecordsBack() {
+        _state.update { it.copy(showRecordsScreen = false) }
+    }
+
+    fun onLoadMoreRecords() {
+        val rs = _state.value.recordsState
+        if (rs.loadingMore || rs.isLastPage) return
+        viewModelScope.launch { loadRecords(page = rs.currentPage + 1, refresh = false) }
+    }
+
+    private suspend fun loadRecords(page: Int, refresh: Boolean) {
+        _state.update { s ->
+            if (refresh) s.copy(recordsState = RecordsUiState(loading = true))
+            else s.copy(recordsState = s.recordsState.copy(loadingMore = true))
+        }
+        repository.getRecordHistory(pageNum = page, pageSize = 10)
+            .onSuccess { historyPage ->
+                _state.update { s ->
+                    val merged = if (refresh) historyPage.content
+                                 else s.recordsState.items + historyPage.content
+                    s.copy(
+                        recordsState = RecordsUiState(
+                            loading = false,
+                            loadingMore = false,
+                            items = merged,
+                            currentPage = historyPage.number,
+                            totalPages = historyPage.totalPages,
+                        )
+                    )
+                }
+            }
+            .onFailure { error ->
+                _state.update { s ->
+                    s.copy(
+                        recordsState = s.recordsState.copy(
+                            loading = false,
+                            loadingMore = false,
+                            error = error.message ?: "Failed to load records",
+                        )
+                    )
+                }
+            }
+    }
+
     fun showInfoMessage(message: String) {
         emitMessage(message, MessageTone.Info)
     }

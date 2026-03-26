@@ -72,9 +72,11 @@ fun ProfileMenuCard(
     userName: String?,
     profileText: String,
     accountText: String,
+    recordsText: String,
     logoutText: String,
     onDismiss: () -> Unit,
     onAccountClick: () -> Unit,
+    onRecordsClick: () -> Unit,
     onLogoutClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -93,6 +95,10 @@ fun ProfileMenuCard(
             ProfileMenuRow(
                 text = accountText,
                 onClick = onAccountClick,
+            )
+            ProfileMenuRow(
+                text = recordsText,
+                onClick = onRecordsClick,
             )
             ProfileMenuRow(
                 text = logoutText,
