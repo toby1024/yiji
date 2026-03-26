@@ -44,6 +44,8 @@ enum class AppTextKey {
     SubscriptionExpireLabel,
     SubscriptionFreePlan,
     SubscriptionManage,
+    HelpCenter,
+    MsgHelpCenterComingSoon,
 }
 
 private val appTextCatalog = mapOf(
@@ -88,6 +90,8 @@ private val appTextCatalog = mapOf(
     AppTextKey.SubscriptionExpireLabel to "Expires: %1\$s",
     AppTextKey.SubscriptionFreePlan to "Free",
     AppTextKey.SubscriptionManage to "Manage",
+    AppTextKey.HelpCenter to "Help Center",
+    AppTextKey.MsgHelpCenterComingSoon to "Help Center is coming soon.",
 )
 
 fun Context.appText(key: AppTextKey, vararg args: Any): String {

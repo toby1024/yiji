@@ -15,6 +15,7 @@ data class MainUiState(
     /** Google Play base plan ID of the active subscription (e.g. "monthly"). */
     val currentSubscriptionBasePlanId: String? = null,
     val showProfileMenu: Boolean = false,
+    val showAccountScreen: Boolean = false,
     val loginInProgress: Boolean = false,
     val messageTone: MessageTone = MessageTone.Info,
     val isSaving: Boolean = false,

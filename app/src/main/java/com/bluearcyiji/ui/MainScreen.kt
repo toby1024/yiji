@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.LinearProgressIndicator
@@ -201,18 +202,9 @@ fun MainScreen(vm: MainViewModel) {
             },
             bottomBar = {
                 MainBottomBar(
-                    isLoggedIn = state.isLoggedIn,
-                    userName = state.loggedInUserName,
-                    showProfileMenu = state.showProfileMenu,
                     homeDesc = t(AppTextKey.DescHome),
                     profileDesc = t(AppTextKey.DescProfile),
-                    profileText = t(AppTextKey.Profile),
-                    accountText = t(AppTextKey.Account),
-                    logoutText = t(AppTextKey.Logout),
                     onProfileClick = vm::onProfileClick,
-                    onProfileDismiss = vm::onProfileDismiss,
-                    onAccountClick = vm::onAccountClick,
-                    onLogoutClick = vm::onLogoutClick,
                 )
             },
         ) { innerPadding ->
@@ -355,6 +347,45 @@ fun MainScreen(vm: MainViewModel) {
             tone = state.messageTone,
             topSpacing = 24.dp,
         )
+
+        // Profile dropdown menu — rendered outside BottomAppBar so it can correctly
+        // float above the bottom bar regardless of edge-to-edge / nav bar insets.
+        if (state.isLoggedIn && state.showProfileMenu) {
+            // Invisible full-screen backdrop to catch dismiss taps
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clickable(
+                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                        indication = null,
+                        onClick = vm::onProfileDismiss,
+                    )
+            )
+            // Menu card anchored to the bottom-end, above the BottomAppBar
+            ProfileMenuCard(
+                userName = state.loggedInUserName,
+                profileText = t(AppTextKey.Profile),
+                accountText = t(AppTextKey.Account),
+                logoutText = t(AppTextKey.Logout),
+                onDismiss = vm::onProfileDismiss,
+                onAccountClick = vm::onAccountClick,
+                onLogoutClick = vm::onLogoutClick,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .navigationBarsPadding()
+                    .padding(end = 12.dp, bottom = 80.dp),
+            )
+        }
+
+        // Account page — full-screen overlay rendered on top of everything
+        if (state.showAccountScreen) {
+            AccountScreen(
+                userName = state.loggedInUserName,
+                helpCenterText = t(AppTextKey.HelpCenter),
+                onBack = vm::onAccountBack,
+                onHelpCenterClick = vm::onHelpCenterClick,
+            )
+        }
     }
 }
 
@@ -494,6 +525,7 @@ private fun keyFrom(raw: String): AppTextKey? = when (raw) {
     "msg_records_saved_successfully" -> AppTextKey.MsgRecordsSavedSuccessfully
     "msg_restoring_session" -> AppTextKey.MsgRestoringSession
     "msg_session_expired_sign_in_again" -> AppTextKey.MsgSessionExpiredSignInAgain
+    "msg_help_center_coming_soon" -> AppTextKey.MsgHelpCenterComingSoon
     "error_server_unavailable" -> AppTextKey.ErrorServerUnavailable
     "error_request_failed" -> AppTextKey.ErrorRequestFailed
     "error_network" -> AppTextKey.ErrorNetwork

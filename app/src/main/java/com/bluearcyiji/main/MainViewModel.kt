@@ -94,8 +94,15 @@ class MainViewModel(
     }
 
     fun onAccountClick() {
-        _state.update { it.copy(showProfileMenu = false) }
-        emitMessage("msg_account_page_coming_soon", MessageTone.Info)
+        _state.update { it.copy(showProfileMenu = false, showAccountScreen = true) }
+    }
+
+    fun onAccountBack() {
+        _state.update { it.copy(showAccountScreen = false) }
+    }
+
+    fun onHelpCenterClick() {
+        emitMessage("msg_help_center_coming_soon", MessageTone.Info)
     }
 
     fun showInfoMessage(message: String) {

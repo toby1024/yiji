@@ -22,8 +22,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -45,18 +43,9 @@ import com.bluearcyiji.network.SkuItem
 
 @Composable
 fun MainBottomBar(
-    isLoggedIn: Boolean,
-    userName: String?,
-    showProfileMenu: Boolean,
     homeDesc: String,
     profileDesc: String,
-    profileText: String,
-    accountText: String,
-    logoutText: String,
     onProfileClick: () -> Unit,
-    onProfileDismiss: () -> Unit,
-    onAccountClick: () -> Unit,
-    onLogoutClick: () -> Unit,
 ) {
     BottomAppBar {
         Row(
@@ -73,28 +62,65 @@ fun MainBottomBar(
                 IconButton(onClick = onProfileClick) {
                     Icon(Icons.Default.Person, contentDescription = profileDesc)
                 }
-
-                DropdownMenu(
-                    expanded = isLoggedIn && showProfileMenu,
-                    onDismissRequest = onProfileDismiss,
-                ) {
-                    DropdownMenuItem(
-                        text = { Text(userName ?: profileText) },
-                        onClick = onProfileDismiss,
-                        enabled = false,
-                    )
-                    HorizontalDivider()
-                    DropdownMenuItem(
-                        text = { Text(accountText) },
-                        onClick = onAccountClick,
-                    )
-                    DropdownMenuItem(
-                        text = { Text(logoutText) },
-                        onClick = onLogoutClick,
-                    )
-                }
             }
         }
+    }
+}
+
+@Composable
+fun ProfileMenuCard(
+    userName: String?,
+    profileText: String,
+    accountText: String,
+    logoutText: String,
+    onDismiss: () -> Unit,
+    onAccountClick: () -> Unit,
+    onLogoutClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(14.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+    ) {
+        Column(modifier = Modifier.width(200.dp)) {
+            ProfileMenuRow(
+                text = userName ?: profileText,
+                onClick = onDismiss,
+                enabled = false,
+            )
+            HorizontalDivider()
+            ProfileMenuRow(
+                text = accountText,
+                onClick = onAccountClick,
+            )
+            ProfileMenuRow(
+                text = logoutText,
+                onClick = onLogoutClick,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProfileMenuRow(
+    text: String,
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(horizontal = 18.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = text,
+            fontSize = 15.sp,
+            color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+            fontWeight = if (enabled) FontWeight.Normal else FontWeight.SemiBold,
+        )
     }
 }
 
