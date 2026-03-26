@@ -439,9 +439,9 @@ private fun resolveTierLabel(raw: String?): String? {
     val key = raw?.trim()?.lowercase(Locale.US).orEmpty()
     if (key.isBlank()) return null
     return when {
-        "weekly" in key -> "weekly"
-        "monthly" in key -> "monthly"
-        "yearly" in key || "annual" in key -> "yearly"
+        "weekly" in key -> "Weekly"
+        "monthly" in key -> "Monthly"
+        "yearly" in key || "annual" in key -> "Yearly"
         else -> null
     }
 }

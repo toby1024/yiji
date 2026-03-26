@@ -31,6 +31,29 @@ object ApiClient {
     private val authOkHttpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(15, TimeUnit.SECONDS)
+        .addInterceptor { chain ->
+            // authOkHttpClient is used by SigningInterceptor's internal repository to refresh
+            // tokens. It cannot reuse SigningInterceptor (circular init), so we apply a
+            // lightweight signing-headers-only interceptor here to ensure X-App-Key,
+            // X-Timestamp, X-Nonce and X-Signature are always present on auth requests.
+            val request = chain.request()
+            val timestamp = System.currentTimeMillis() / 1000
+            val nonce = SignatureGenerator.generateNonce()
+            val canonicalString = SignatureGenerator.createCanonicalString(
+                request = request,
+                timestampSeconds = timestamp,
+                nonce = nonce,
+            )
+            val signature = SignatureGenerator.hmacSha256Base64(AppConfig.apiSecret, canonicalString)
+            chain.proceed(
+                request.newBuilder()
+                    .header("X-App-Key", AppConfig.apiKey)
+                    .header("X-Timestamp", timestamp.toString())
+                    .header("X-Nonce", nonce)
+                    .header("X-Signature", signature)
+                    .build()
+            )
+        }
         .addInterceptor(loggingInterceptor)
         .build()
 
