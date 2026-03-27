@@ -14,6 +14,8 @@ object ApiClient {
         val apiBaseUrl: String = BuildConfig.API_BASE_URL
         val apiKey: String = BuildConfig.API_KEY
         val apiSecret: String = BuildConfig.API_SECRET
+
+        val packageName: String = BuildConfig.APPLICATION_ID
     }
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
@@ -26,6 +28,7 @@ object ApiClient {
         redactHeader("X-Api-Key")
         redactHeader("X-App-Key")
         redactHeader("X-Signature")
+        redactHeader("X-package-name")
     }
 
     private val authOkHttpClient = OkHttpClient.Builder()
@@ -51,6 +54,7 @@ object ApiClient {
                     .header("X-Timestamp", timestamp.toString())
                     .header("X-Nonce", nonce)
                     .header("X-Signature", signature)
+                    .header("X-package-name", AppConfig.packageName)
                     .build()
             )
         }
@@ -72,6 +76,7 @@ object ApiClient {
         .readTimeout(15, TimeUnit.SECONDS)
         .addInterceptor(
             SigningInterceptor(
+                AppConfig.packageName,
                 AppConfig.apiKey,
                 AppConfig.apiSecret
             )

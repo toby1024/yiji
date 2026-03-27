@@ -6,6 +6,7 @@ import okhttp3.Response
 import kotlinx.coroutines.runBlocking
 
 class SigningInterceptor(
+    private val packageName: String,
     private val apiKey: String,
     private val apiSecret: String,
 ) : Interceptor {
@@ -44,13 +45,14 @@ class SigningInterceptor(
 
         // ===== Resources request handling =====
         if (request.url.encodedPath.startsWith("/resources/")) {
-            val resourceCanonicalString = "$apiKey:$timestamp:$nonce"
+            val resourceCanonicalString = "${packageName}:$apiKey:$timestamp:$nonce"
             val signature = SignatureGenerator.hmacSha256Base64(
                 secret = apiSecret,
                 canonicalString = resourceCanonicalString,
             )
             val resourceRequest = requestBuilder
                 .header("X-App-Key", apiKey)
+                .header("X-package-name", packageName)
                 .header("X-Timestamp", timestamp.toString())
                 .header("X-Nonce", nonce)
                 .header("X-Signature", signature)
@@ -72,6 +74,7 @@ class SigningInterceptor(
 
         val signedRequest = requestBuilder
             .header("X-App-Key", apiKey)
+            .header("X-package-name", packageName)
             .header("X-Timestamp", timestamp.toString())
             .header("X-Nonce", nonce)
             .header("X-Signature", signature)
