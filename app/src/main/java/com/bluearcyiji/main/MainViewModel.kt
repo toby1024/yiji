@@ -528,7 +528,7 @@ class MainViewModel(
                 val data = payload?.data
                 val remaining = if (data is Map<*, *>) (data["remaining"] as? Number)?.toInt() else null
                 if (!isPremium && remaining != null) {
-                    onRecordsSaved(clearMessage = false) // 只清空数据，不弹出默认提示
+                    onRecordsSaved(clearMessage = false) // Only clear data, do not show default message
                     _effects.send(MainUiEffect.ShowTopMessage("msg_records_saved_and_remaining|$remaining", MessageTone.Success))
                 } else {
                     onRecordsSaved()

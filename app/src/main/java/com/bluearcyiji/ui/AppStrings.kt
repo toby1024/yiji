@@ -50,6 +50,12 @@ enum class AppTextKey {
     MsgRecordsRemaining,
     MsgRecordsRemainingCount,
     MsgRecordsSavedAndRemaining,
+    MsgPurchaseSuccess,
+    MsgPurchaseCancelled,
+    MsgPurchaseFailed,
+    MsgNoActivityForPurchase,
+    MsgNoPlanSelected,
+    MsgAlreadyOnCurrentPlan,
 }
 
 private val appTextCatalog = mapOf(
@@ -100,6 +106,12 @@ private val appTextCatalog = mapOf(
     AppTextKey.MsgRecordsRemaining to "Records remaining: %1\$s",
     AppTextKey.MsgRecordsRemainingCount to "You have %1\$s records remaining.",
     AppTextKey.MsgRecordsSavedAndRemaining to "Records saved. You have %1\$s records remaining.",
+    AppTextKey.MsgPurchaseSuccess to "Purchase successful.",
+    AppTextKey.MsgPurchaseCancelled to "Payment cancelled.",
+    AppTextKey.MsgPurchaseFailed to "Payment failed: %1\$s",
+    AppTextKey.MsgNoActivityForPurchase to "Cannot start purchase: Activity missing.",
+    AppTextKey.MsgNoPlanSelected to "Please select a subscription plan.",
+    AppTextKey.MsgAlreadyOnCurrentPlan to "You are already on the current plan.",
 )
 
 fun Context.appText(key: AppTextKey, vararg args: Any): String {

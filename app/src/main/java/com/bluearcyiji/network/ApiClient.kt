@@ -57,7 +57,7 @@ object ApiClient {
         .addInterceptor(loggingInterceptor)
         .build()
 
-    // 必须先初始化：SigningInterceptor 构造/refresh 逻辑会用到它
+    // Must be initialized first: SigningInterceptor constructor/refresh logic depends on it
     val authService: ApiService by lazy {
         Retrofit.Builder()
             .baseUrl(normalizeBaseUrl(AppConfig.apiBaseUrl))
@@ -92,4 +92,3 @@ object ApiClient {
         return if (baseUrl.endsWith('/')) baseUrl else "$baseUrl/"
     }
 }
-

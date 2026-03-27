@@ -42,7 +42,7 @@ class SigningInterceptor(
         val timestamp = System.currentTimeMillis() / 1000
         val nonce = SignatureGenerator.generateNonce()
 
-        // ===== Resources 请求处理 =====
+        // ===== Resources request handling =====
         if (request.url.encodedPath.startsWith("/resources/")) {
             val resourceCanonicalString = "$apiKey:$timestamp:$nonce"
             val signature = SignatureGenerator.hmacSha256Base64(
@@ -58,7 +58,7 @@ class SigningInterceptor(
             return chain.proceed(resourceRequest)
         }
 
-        // ===== 普通 API 请求处理 =====
+        // ===== Normal API request handling =====
         if (!serverToken.isNullOrBlank() && !skipAuth) {
             requestBuilder.header("Authorization", "Bearer $serverToken")
         }

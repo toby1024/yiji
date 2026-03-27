@@ -32,7 +32,7 @@ class BillingManager(
         .setListener(this)
         .enablePendingPurchases(
             PendingPurchasesParams.newBuilder()
-                // 订阅购买必需；同时开启一次性商品以兼容未来扩展
+                // Required for subscription purchases; also enable one-time products for future compatibility
                 .enablePrepaidPlans()
                 .enableOneTimeProducts()
                 .build()
@@ -79,7 +79,7 @@ class BillingManager(
                 }
 
                 override fun onBillingServiceDisconnected() {
-                    // Billing 底层会自动重连；这里不主动重试，避免循环
+                    // Billing will automatically reconnect at the lower level; do not retry here to avoid loops
                 }
             }
         )

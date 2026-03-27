@@ -168,16 +168,16 @@ fun MainScreen(vm: MainViewModel) {
             when (event) {
                 is BillingEvent.PurchaseSuccess -> {
                     vm.onSubscriptionPurchaseSucceeded(event.purchases.flatMap { purchase -> purchase.products })
-                    vm.showSuccessMessage("购买成功")
+                    vm.showSuccessMessage(t(AppTextKey.MsgPurchaseSuccess))
                     vm.onPremiumDismiss()
                 }
 
                 BillingEvent.UserCancelled -> {
-                    vm.showInfoMessage("已取消支付")
+                    vm.showInfoMessage(t(AppTextKey.MsgPurchaseCancelled))
                 }
 
                 is BillingEvent.Error -> {
-                    vm.showErrorMessage("支付失败：${event.message}")
+                    vm.showErrorMessage(t(AppTextKey.MsgPurchaseFailed, event.message ?: ""))
                 }
             }
         }
@@ -282,11 +282,11 @@ fun MainScreen(vm: MainViewModel) {
                 val skuId = state.selectedPremiumSkuId
                 val bm = billingManager
                 if (activity == null || bm == null) {
-                    vm.showErrorMessage("无法发起支付：缺少 Activity")
+                    vm.showErrorMessage(t(AppTextKey.MsgNoActivityForPurchase))
                     return@PremiumOverlayDialog
                 }
                 if (skuId.isNullOrBlank()) {
-                    vm.showErrorMessage("请选择订阅方案")
+                    vm.showErrorMessage(t(AppTextKey.MsgNoPlanSelected))
                     return@PremiumOverlayDialog
                 }
                 val currentSkuId = state.currentSubscriptionSkuId
@@ -294,7 +294,7 @@ fun MainScreen(vm: MainViewModel) {
                 val selectedBasePlanId = state.selectedPremiumBasePlanId
                 if (!currentSkuId.isNullOrBlank() && currentSkuId == skuId &&
                     !currentBasePlanId.isNullOrBlank() && currentBasePlanId == selectedBasePlanId) {
-                    vm.showInfoMessage("你已经在当前订阅方案")
+                    vm.showInfoMessage(t(AppTextKey.MsgAlreadyOnCurrentPlan))
                     return@PremiumOverlayDialog
                 }
                 bm.launchSubscriptionPurchase(
