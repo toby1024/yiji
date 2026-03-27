@@ -47,6 +47,9 @@ enum class AppTextKey {
     HelpCenter,
     MsgHelpCenterComingSoon,
     Records,
+    MsgRecordsRemaining,
+    MsgRecordsRemainingCount,
+    MsgRecordsSavedAndRemaining,
 }
 
 private val appTextCatalog = mapOf(
@@ -94,6 +97,9 @@ private val appTextCatalog = mapOf(
     AppTextKey.HelpCenter to "Help Center",
     AppTextKey.MsgHelpCenterComingSoon to "Help Center is coming soon.",
     AppTextKey.Records to "Records",
+    AppTextKey.MsgRecordsRemaining to "Records remaining: %1\$s",
+    AppTextKey.MsgRecordsRemainingCount to "You have %1\$s records remaining.",
+    AppTextKey.MsgRecordsSavedAndRemaining to "Records saved. You have %1\$s records remaining.",
 )
 
 fun Context.appText(key: AppTextKey, vararg args: Any): String {

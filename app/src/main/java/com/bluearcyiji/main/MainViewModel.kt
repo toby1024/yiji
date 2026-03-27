@@ -523,7 +523,16 @@ class MainViewModel(
         try {
             val result = repository.saveRecords(request)
             if (result.isSuccess) {
-                onRecordsSaved()
+                val payload = result.getOrNull()
+                val isPremium = s.isPremium
+                val data = payload?.data
+                val remaining = if (data is Map<*, *>) (data["remaining"] as? Number)?.toInt() else null
+                if (!isPremium && remaining != null) {
+                    onRecordsSaved(clearMessage = false) // 只清空数据，不弹出默认提示
+                    _effects.send(MainUiEffect.ShowTopMessage("msg_records_saved_and_remaining|$remaining", MessageTone.Success))
+                } else {
+                    onRecordsSaved()
+                }
                 return
             }
 
@@ -563,10 +572,12 @@ class MainViewModel(
         _effects.send(MainUiEffect.ShowTopMessage(mapError("action_save", error), MessageTone.Error))
     }
 
-    private suspend fun onRecordsSaved() {
+    private suspend fun onRecordsSaved(clearMessage: Boolean = true) {
         clearTapData()
         _state.update { it.copy(messageTone = MessageTone.Success) }
-        _effects.send(MainUiEffect.ShowTopMessage("msg_records_saved_successfully", MessageTone.Success))
+        if (clearMessage) {
+            _effects.send(MainUiEffect.ShowTopMessage("msg_records_saved_successfully", MessageTone.Success))
+        }
     }
 
     private fun clearTapData() {

@@ -115,14 +115,16 @@ class ServerApiRepository(
         }
     }
 
-    suspend fun saveRecords(record: RecordRequest): Result<Unit> {
+    suspend fun saveRecords(record: RecordRequest): Result<BaseResponse<Map<String, Any>>> {
         return runCatching {
             val response = apiService.saveRecords(record)
             if (!response.isSuccessful) {
                 val errorBody = response.errorBody()?.string().orEmpty()
                 throwHttpError(response.code(), response.message(), errorBody)
             }
-            val payload = response.body() ?: return@runCatching
+            @Suppress("UNCHECKED_CAST")
+            val payload = response.body() as? BaseResponse<Map<String, Any>>
+                ?: error("Empty or invalid response body")
             if (!isBusinessSuccess(payload.code)) {
                 if (payload.code == 402) {
                     throw ApiHttpException(
@@ -138,7 +140,7 @@ class ServerApiRepository(
                 }
                 error("Business error ${payload.code}: ${payload.message.orEmpty()}")
             }
-            Unit
+            payload
         }
     }
 

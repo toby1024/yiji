@@ -547,6 +547,12 @@ private fun resolveMessage(
             return t(AppTextKey.ErrorActionFailed, arrayOf(action, detail))
         }
     }
+    // 新增对 msg_records_saved_and_remaining|N 这类的解析
+    if (raw.startsWith("msg_records_saved_and_remaining|")) {
+        val parts = raw.split("|", limit = 2)
+        val count = parts.getOrNull(1) ?: "0"
+        return t(AppTextKey.MsgRecordsSavedAndRemaining, arrayOf(count))
+    }
     return keyFrom(raw)?.let { t(it, emptyArray()) } ?: raw
 }
 
